@@ -1,6 +1,7 @@
 import { User, Phone, Home, MapPin, FileText, Landmark, Settings } from 'lucide-react'
 import { YES_NO_OPTIONS } from '../../utils/numericFields'
 import MasterFormScreen from '../../components/MasterFormScreen'
+import { MASTER_PAYMENT_TERMS } from '../../utils/poTermsOptions'
 import {
   listCustomers,
   createCustomer,
@@ -110,8 +111,8 @@ const SECTIONS = [
         key: 'payment_terms',
         label: 'Payment Terms',
         required: true,
-        type: 'select',
-        options: ['30 Days', '45 Days', '60 Days'],
+        type: 'addNew',
+        options: MASTER_PAYMENT_TERMS,
         width: 'short',
       },
       { key: 'currency', label: 'Currency', required: true, type: 'select', options: ['INR', 'USD', 'EURO'], width: 'short' },

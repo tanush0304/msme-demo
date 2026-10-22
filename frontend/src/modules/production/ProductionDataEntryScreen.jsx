@@ -658,19 +658,19 @@ export default function ProductionDataEntryScreen({ role }) {
         {resolvedStage && (
           <FormSection icon={PlayCircle} title="2. Auto-Resolved Stage" subtitle="Stage resolved automatically" columns={3}>
             <Field label="Operation">
-              <TextInput value={resolvedStage.operation} disabled />
+              <AutoFillBox value={resolvedStage.operation} />
             </Field>
             <Field label="Cycle Time (min)">
-              <TextInput value={activeLog?.cycle_time_min ?? masterCycleTime ?? ''} disabled />
+              <AutoFillBox value={activeLog?.cycle_time_min ?? masterCycleTime ?? ''} />
               {cycleNote && !activeLog && <p className="mt-0.5 text-[11px] text-amber-700">{cycleNote}</p>}
             </Field>
             <Field label="Standard Qty / Hour">
-              <TextInput value={standardQtyPerHour(resolvedStage.cycle_time_min)?.toFixed(2) ?? ''} disabled />
+              <AutoFillBox value={standardQtyPerHour(resolvedStage.cycle_time_min)?.toFixed(2) ?? ''} />
             </Field>
             {/* While a log is open its stage share is already reserved, so the
                 remaining availability reads 0 -- show the log's own planned qty. */}
             <Field label={activeLog ? 'Planned Qty (this log)' : 'Planned Qty (available from upstream)'}>
-              <TextInput value={(activeLog ? activeLog.planned_qty : plannedQty) ?? ''} disabled />
+              <AutoFillBox value={(activeLog ? activeLog.planned_qty : plannedQty) ?? ''} />
             </Field>
             <Field label="Setter">
               <EmployeeSelect

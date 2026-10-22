@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { CircleCheck, Microscope, SearchCheck, Wrench } from 'lucide-react'
 import ActionToolbar from '../../../components/ActionToolbar'
 import FormSection, { Field, TextInput, SelectInput } from '../../../components/FormSection'
+import SelectWithAddNew, { mergeOptions } from '../../../components/SelectWithAddNew'
 import SearchableSelect from '../../../components/SearchableSelect'
 import EmployeeSelect from '../../../components/EmployeeSelect'
 import { exportToCsv, exportToPdf } from '../../../utils/exportUtils'
@@ -202,7 +203,12 @@ export default function ComplaintInvestigationScreen({ role, initialComplaintNo 
               <TextInput value={form.root_cause} onChange={set('root_cause')} disabled={locked} />
             </Field>
             <Field label="Root Cause Category">
-              <SelectInput value={form.root_cause_category} onChange={set('root_cause_category')} options={ROOT_CAUSE_CATEGORY_OPTIONS} disabled={locked} />
+              <SelectWithAddNew
+                value={form.root_cause_category}
+                onChange={set('root_cause_category')}
+                options={mergeOptions(ROOT_CAUSE_CATEGORY_OPTIONS, data.complaints.map((c) => c.root_cause_category))}
+                disabled={locked}
+              />
             </Field>
             <Field label="Investigation Method">
               <SelectInput value={form.investigation_method} onChange={set('investigation_method')} options={INVESTIGATION_METHOD_OPTIONS} disabled={locked} />

@@ -2,7 +2,7 @@ import { computeLiveLogTotals } from '../../utils/productionReport'
 import { useEffect, useState } from 'react'
 import { ClipboardCheck, PlayCircle, Clock3, CheckCircle2, Lock, StopCircle } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
-import FormSection, { Field, TextInput, SelectInput, AutoFillBox } from '../../components/FormSection'
+import FormSection, { Field, SelectInput, AutoFillBox } from '../../components/FormSection'
 import SearchableSelect from '../../components/SearchableSelect'
 import usePartForPrd from '../../utils/usePartForPrd'
 import HourlySlotsEntry from '../../components/HourlySlotsEntry'
@@ -467,18 +467,18 @@ export default function ManualOperationsScreen({ role }) {
         {resolvedStage && (
           <FormSection icon={PlayCircle} title="2. Auto-Resolved Stage" subtitle="Stage resolved automatically" columns={3}>
             <Field label="Operation">
-              <TextInput value={resolvedStage.operation} disabled />
+              <AutoFillBox value={resolvedStage.operation} />
             </Field>
             <Field label="Cycle Time (min)">
-              <TextInput value={resolvedStage.cycle_time_min ?? ''} disabled />
+              <AutoFillBox value={resolvedStage.cycle_time_min ?? ''} />
             </Field>
             <Field label="Standard Qty / Hour">
-              <TextInput value={standardQtyPerHour(resolvedStage.cycle_time_min)?.toFixed(2) ?? ''} disabled />
+              <AutoFillBox value={standardQtyPerHour(resolvedStage.cycle_time_min)?.toFixed(2) ?? ''} />
             </Field>
             {/* While a log is open its stage share is already reserved, so the
                 remaining availability reads 0 -- show the log's own planned qty. */}
             <Field label={activeLog ? 'Planned Qty (this log)' : 'Planned Qty (available from upstream)'}>
-              <TextInput value={(activeLog ? activeLog.planned_qty : plannedQty) ?? ''} disabled />
+              <AutoFillBox value={(activeLog ? activeLog.planned_qty : plannedQty) ?? ''} />
             </Field>
             <Field label="Shift" required>
               <SelectInput

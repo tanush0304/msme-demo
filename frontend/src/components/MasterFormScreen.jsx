@@ -4,6 +4,7 @@ import ActionToolbar from './ActionToolbar'
 import FormSection, { Field, TextInput, SelectInput } from './FormSection'
 import RecordsList from './RecordsList'
 import TimeInput12 from './TimeInput12'
+import SelectWithAddNew, { mergeOptions } from './SelectWithAddNew'
 import { exportToCsv, exportToPdf } from '../utils/exportUtils'
 import { withTypedFields, typedKeysFromFields } from '../utils/numericFields'
 
@@ -200,6 +201,14 @@ export default function MasterFormScreen({
                       onChange={handleField(f.key)}
                       disabled={readOnly || (f.lockOnEdit && pkLocked)}
                       options={f.options}
+                    />
+                  ) : f.type === 'addNew' ? (
+                    // Built-ins (f.options) + every value already saved in this column.
+                    <SelectWithAddNew
+                      value={form[f.key] ?? ''}
+                      onChange={handleField(f.key)}
+                      disabled={readOnly || (f.lockOnEdit && pkLocked)}
+                      options={mergeOptions(f.options ?? [], records.map((r) => r[f.key]))}
                     />
                   ) : f.type === 'time12' ? (
                     <TimeInput12

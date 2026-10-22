@@ -5,6 +5,8 @@ import { Truck as TruckIcon, Phone, Landmark, ListChecks } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import ActionToolbar from '../../components/ActionToolbar'
 import FormSection, { Field, TextInput, SelectInput } from '../../components/FormSection'
+import SelectWithAddNew, { mergeOptions } from '../../components/SelectWithAddNew'
+import { MASTER_PAYMENT_TERMS } from '../../utils/poTermsOptions'
 import MultiSelectDropdown from '../../components/MultiSelectDropdown'
 import RecordsList from '../../components/RecordsList'
 import { listVendors, createVendor, updateVendor, deleteVendor } from '../../data/queries/vendors'
@@ -296,11 +298,11 @@ export default function VendorMaster() {
               />
             </Field>
             <Field label="Payment Terms">
-              <SelectInput
+              <SelectWithAddNew
                 value={form.payment_terms}
                 onChange={handleField('payment_terms')}
                 disabled={readOnly}
-                options={['30 Days', '60 Days', '90 Days']}
+                options={mergeOptions(MASTER_PAYMENT_TERMS, records.map((r) => r.payment_terms))}
               />
             </Field>
             <Field label="Credit Period">

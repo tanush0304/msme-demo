@@ -3,7 +3,8 @@ import { Wrench, ClipboardCheck, Pencil } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import ActionToolbar from '../../components/ActionToolbar'
 import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
-import FormSection, { Field, TextInput, SelectInput } from '../../components/FormSection'
+import FormSection, { Field, TextInput, SelectInput, AutoFillBox } from '../../components/FormSection'
+import SelectWithAddNew, { mergeOptions } from '../../components/SelectWithAddNew'
 import SearchableSelect from '../../components/SearchableSelect'
 import RecordsList from '../../components/RecordsList'
 import { listMachines } from '../../data/queries/machines'
@@ -25,7 +26,9 @@ import { canEditStock } from '../../utils/stockEdit'
 import { useAppUsers, withEditedLabels, EDITED_COLUMN } from '../../components/StockEditPanel'
 
 // Type of Maintenance options, per the client's Maintenance Module sheet.
-const MAINTENANCE_TYPES = ['Daily', 'Weekly', 'Monthly']
+// Built-ins; values added with "+ Add new" are saved on the visit and
+// offered again from the visits this screen lists (recentLogs).
+const MAINTENANCE_TYPES = ['Daily', 'Weekly', 'Monthly', 'Quarterly', 'Yearly']
 
 export default function ChecklistEntryScreen({ role }) {
   const [machines, setMachines] = useState([])
@@ -183,6 +186,7 @@ export default function ChecklistEntryScreen({ role }) {
     return null
   }
 
+  const maintenanceTypeOptions = mergeOptions(MAINTENANCE_TYPES, recentLogs.map((l) => l.maintenance_type))
   const filteredRecentLogs = withEditedLabels(recentLogs, appUsers).filter((l) => {
     if (!search) return true
     return l.machine_id?.toLowerCase().includes(search.toLowerCase())
@@ -234,11 +238,11 @@ export default function ChecklistEntryScreen({ role }) {
             <TextInput type="date" value={logDate} onChange={(e) => setLogDate(e.target.value)} disabled={!!activeLog} />
           </Field>
           <Field label="Type of Maintenance">
-            <SelectInput
+            <SelectWithAddNew
               value={maintenanceType}
               onChange={(e) => setMaintenanceType(e.target.value)}
               disabled={!!activeLog}
-              options={MAINTENANCE_TYPES}
+              options={maintenanceTypeOptions}
             />
           </Field>
           {machineId && checklistItems.length === 0 && (
@@ -293,7 +297,7 @@ export default function ChecklistEntryScreen({ role }) {
         )}
 
         {editingLog && (
-          <VisitEditPanel
+          <VisitEditPanel maintenanceTypeOptions={maintenanceTypeOptions}
             log={editingLog}
             machines={machines}
             employees={employees}
@@ -321,7 +325,7 @@ export default function ChecklistEntryScreen({ role }) {
  * each saved checklist item's Condition / Observation / Action Taken.
  * Machine and Date stay as saved (the DB refuses changing them, 032).
  * onSave(header, items, originalItems) returns an error or null. */
-function VisitEditPanel({ log, machines, employees, shifts, onSave, onCancel }) {
+function VisitEditPanel({ log, machines, employees, shifts, maintenanceTypeOptions, onSave, onCancel }) {
   const [header, setHeader] = useState({ employee_id: log.employee_id ?? '', shift_code: log.shift_code ?? '', maintenance_type: log.maintenance_type ?? '' })
   const [original, setOriginal] = useState([])
   const [items, setItems] = useState([])
@@ -367,10 +371,10 @@ function VisitEditPanel({ log, machines, employees, shifts, onSave, onCancel }) 
     <FormSection icon={Pencil} title="Edit Maintenance Visit" subtitle="Supervisor / admin correction -- recorded with who and when" columns={4}>
       {error && <div className="sm:col-span-4 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{error}</div>}
       <Field label="Machine">
-        <TextInput value={machine ? machineOptionLabel(machine) : log.machine_id} disabled />
+        <AutoFillBox value={machine ? machineOptionLabel(machine) : log.machine_id} />
       </Field>
       <Field label="Date">
-        <TextInput value={log.log_date ?? ''} disabled />
+        <AutoFillBox value={log.log_date ?? ''} />
       </Field>
       <Field label="Maintenance Engineer" required>
         <EmployeeSelect employees={employees} value={header.employee_id} onChange={(e) => setHeader((h) => ({ ...h, employee_id: e.target.value }))} />
@@ -379,7 +383,7 @@ function VisitEditPanel({ log, machines, employees, shifts, onSave, onCancel }) 
         <SelectInput value={header.shift_code} onChange={(e) => setHeader((h) => ({ ...h, shift_code: e.target.value }))} options={shifts.map((s) => s.shift_code)} />
       </Field>
       <Field label="Type of Maintenance">
-        <SelectInput value={header.maintenance_type} onChange={(e) => setHeader((h) => ({ ...h, maintenance_type: e.target.value }))} options={MAINTENANCE_TYPES} />
+        <SelectWithAddNew value={header.maintenance_type} onChange={(e) => setHeader((h) => ({ ...h, maintenance_type: e.target.value }))} options={maintenanceTypeOptions} />
       </Field>
       <div className="sm:col-span-4 divide-y divide-gray-100 rounded border border-gray-200 bg-white">
         {loadingItems ? (

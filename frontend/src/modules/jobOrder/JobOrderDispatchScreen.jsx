@@ -444,7 +444,7 @@ export default function JobOrderDispatchScreen({ role }) {
             />
           </Field>
           <Field label="Job Work Type">
-            <TextInput value={selectedStage?.job_work_code ?? ''} disabled />
+            <AutoFillBox value={selectedStage?.job_work_code ?? ''} />
           </Field>
           <Field label="Lead Time (days)">
             <AutoFillBox
@@ -473,7 +473,7 @@ export default function JobOrderDispatchScreen({ role }) {
             <TextInput type="date" value={form.dispatch_date} onChange={handleField('dispatch_date')} />
           </Field>
           <Field label="Expected Receipt Date">
-            <TextInput value={expectedReceiptDate()} disabled />
+            <AutoFillBox value={expectedReceiptDate()} />
           </Field>
           {selectedStage && (
             <div className="sm:col-span-3 rounded border border-slate-200 bg-white p-2.5 text-[13px]">

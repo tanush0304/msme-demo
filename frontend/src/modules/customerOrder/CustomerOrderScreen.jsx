@@ -467,7 +467,7 @@ export default function CustomerOrderScreen() {
                 <SelectWithAddNew
                   value={poHeader.payment_terms ?? ''}
                   onChange={handlePoHeaderField('payment_terms')}
-                  options={paymentTermsOptions(poHeaders)}
+                  options={paymentTermsOptions(poHeaders, customers)}
                 />
               </Field>
             </FormSection>
