@@ -3,6 +3,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { NAV_ITEMS, STORES_LANDING_TILES, subItemLabel, isModuleRestricted } from '../utils/constants'
 import { landingTiles } from './moduleLandings'
+import { moduleTheme } from '../theme/moduleTheme'
 import ProductionModule from './production/ProductionModule'
 import CustomerOrderModule from './customerOrder/CustomerOrderModule'
 import JobOrderModule from './jobOrder/JobOrderModule'
@@ -28,18 +29,16 @@ describe('module landing tiles', () => {
     (key) => {
       const tiles = landingTiles(key, 'admin')
       expect(tiles.map((t) => t.label)).toEqual(subLabels(key))
-      expect(tiles.every((t) => Boolean(t.img) || Boolean(t.icon))).toBe(true)
-      expect(tiles.every((t) => Boolean(t.bg))).toBe(true)
+      expect(tiles.every((t) => Boolean(t.icon) && Boolean(t.description))).toBe(true)
+      expect(tiles.every((t) => t.theme === moduleTheme(key))).toBe(true)
     }
   )
 
-  it('uses deck pictures where they exist and icons otherwise', () => {
-    const art = (key) => Object.fromEntries(landingTiles(key, 'supervisor').map((t) => [t.key, t.img ? 'img' : 'icon']))
-    expect(art('production')).toEqual({ 'production-data-entry': 'img', 'manual-operations': 'img', planning: 'img', 'route-card': 'icon', 'shift-verification': 'img' })
-    expect(landingTiles('production', 'supervisor').find((t) => t.key === 'shift-verification').img).toBeTruthy()
-    expect(art('customer-order')).toEqual({ enquiry: 'img', order: 'img' })
-    expect(Object.values(art('job-order'))).toEqual(['img', 'img'])
-    expect(Object.values(art('maintenance'))).toEqual(['img', 'img'])
+  it('uses icons, never tile pictures', () => {
+    ;['production', 'customer-order', 'job-order', 'maintenance', 'quality', 'stores', 'dashboard'].forEach((key) => {
+      const tiles = landingTiles(key, 'supervisor')
+      expect(tiles.every((t) => Boolean(t.icon) && !t.img)).toBe(true)
+    })
   })
 
   it('Stores has 6 tiles (Raw Material Requisition is sidebar only); RM and FG tiles open the combined screen on the right tab', () => {
@@ -55,7 +54,7 @@ describe('module landing tiles', () => {
       'fg-receipt': ['fg', 'production-receipt'],
       'fg-despatch': ['fg', 'dispatch'],
     })
-    expect(tiles.filter((t) => t.img)).toHaveLength(6)
+    expect(tiles.filter((t) => t.icon)).toHaveLength(6)
   })
 
   it('Shift Verification is a supervisor/admin-only Production tile', () => {
@@ -117,10 +116,10 @@ describe('module components', () => {
 })
 
 describe('Quality', () => {
-  it('has 2 deck-picture tiles: Quality Inspection + Customer Complaint', () => {
+  it('has 2 tiles: Quality Inspection + Customer Complaint', () => {
     const tiles = landingTiles('quality')
     expect(tiles.map((t) => t.label)).toEqual(['Quality Inspection', 'Customer Complaint'])
-    expect(tiles.every((t) => Boolean(t.img))).toBe(true)
+    expect(tiles.every((t) => Boolean(t.icon))).toBe(true)
   })
 
   it('opens inspection, and Customer Complaint as one tabbed screen', () => {
@@ -142,11 +141,11 @@ describe('Quality', () => {
 describe('Reports & Dashboard', () => {
   const REPORTS = ['Customer Order Status', 'Job Order Status', 'Production Status', 'Daily Machine Status', 'Machine Downtime', 'Quality Status', 'WIP Status', 'Raw Material Status', 'Finished Goods Status', 'Customer Complaint Status']
 
-  it('opens a landing with the 9 deck report cards, then Customer Complaint', () => {
+  it('opens a landing with the 9 report cards, then Customer Complaint', () => {
     const el = ReportsModule({ activeTab: null, role: 'operator' })
     expect(el.type).toBe(ReportLanding)
     expect(el.props.tiles.map((t) => t.label)).toEqual(REPORTS)
-    expect(el.props.tiles.every((t) => t.img && t.bg && t.accent && t.description)).toBe(true)
+    expect(el.props.tiles.every((t) => t.icon && t.theme && t.description)).toBe(true)
     expect(el.props.tiles.map((t) => t.label).join(' ')).not.toMatch(/Downtine|despatch/i)
   })
   it('keeps the moved reports sidebar-only, after the report cards', () => {
@@ -156,10 +155,10 @@ describe('Reports & Dashboard', () => {
     expect(schedule.props.children.type).toBe(ProductionScheduleScreen)
   })
 
-  it('Customer Complaint report: picture card, chart page (Bar default), supervisor/admin only', () => {
+  it('Customer Complaint report: card, chart page (Bar default), supervisor/admin only', () => {
     const tile = ReportsModule({ activeTab: null, role: 'supervisor' }).props.tiles.find((t) => t.key === 'complaint-status')
     expect(tile).toMatchObject({ subKey: 'complaint-status', label: 'Customer Complaint Status' })
-    expect(tile.img && tile.bg && tile.accent && tile.description).toBeTruthy()
+    expect(tile.icon && tile.theme && tile.description).toBeTruthy()
 
     const el = ReportsModule({ activeTab: 'complaint-status' })
     expect(el.type).toBe(ReportErrorBoundary)

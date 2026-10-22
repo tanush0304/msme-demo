@@ -4,6 +4,7 @@
 
 body {
   margin: 0;
+  background-color: #F4F7FC;
   font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
 }
 
@@ -41,3 +42,28 @@ body {
 .toolbar-legend { display: none; }
 body:has(.form-card-body) .toolbar-legend { display: flex; }
 body:has([role='toolbar']) .card-legend { display: none; }
+
+/* Pastel page background (blue -> lavender -> pink), light enough for forms
+   to read on. Fixed, so nested scroll areas that each use it line up as one
+   continuous gradient. */
+.bg-page {
+  background-color: #F1F4FC;
+  background-image:
+    radial-gradient(1200px 650px at 0% 0%, rgba(191, 219, 254, 0.85), transparent 62%),
+    radial-gradient(1000px 650px at 100% 5%, rgba(221, 214, 254, 0.8), transparent 62%),
+    radial-gradient(1000px 750px at 70% 100%, rgba(251, 207, 232, 0.7), transparent 62%);
+  background-attachment: fixed;
+}
+
+/* Inside a module (ModuleThemeProvider): like the ModuleCard wash -- white at
+   the top-left, fading diagonally to a ~12% accent tint at the bottom-right,
+   plus a soft radial glow in that corner (~20% at the very corner). Each
+   layer sits on an opaque white base, so nested .bg-page areas never
+   compound. Text placed directly on it uses slate-700 / the module's 800
+   shade. Home sits outside any module and keeps the multi-colour gradient. */
+.module-themed .bg-page {
+  background-color: #FFFFFF;
+  background-image:
+    radial-gradient(900px 650px at 100% 100%, rgb(var(--brand-accent) / 0.09), transparent 70%),
+    linear-gradient(135deg, #FFFFFF 0%, #FFFFFF 30%, rgb(var(--brand-accent) / 0.12) 100%);
+}

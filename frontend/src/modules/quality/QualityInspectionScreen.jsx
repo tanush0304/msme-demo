@@ -341,7 +341,7 @@ export default function QualityInspectionScreen({ role }) {
         onExportPdf={() => exportToPdf(HISTORY_COLUMNS, filteredHistory, 'Quality Inspection History', 'quality_inspections')}
       />
 
-      <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
+      <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-page">
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{error}</div>
         )}
@@ -501,7 +501,7 @@ export default function QualityInspectionScreen({ role }) {
           onSearchChange={setHistorySearch}
           searchPlaceholder="Search by PRD / Machine / Parameter..."
         />
-        <div className="text-xs text-gray-500 px-1">Total Records: {filteredHistory.length}</div>
+        <div className="text-xs text-slate-700 px-1">Total Records: {filteredHistory.length}</div>
       </div>
     </div>
   )

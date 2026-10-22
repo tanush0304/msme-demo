@@ -1,30 +1,31 @@
 import { createContext, useContext } from 'react'
+import { MODULE_THEME, DEFAULT_THEME, moduleTheme, themeVars } from '../theme/moduleTheme'
+import { moduleLabel } from '../utils/constants'
 
-// Each module's own PageHeader gradient -- a shade of blue distinct enough
-// to tell modules apart at a glance. The outermost accent bar (PageHeader's
-// skewed corner strip) and the footer bar are NOT part of this -- those stay
-// one consistent color across the whole app regardless of module.
-export const MODULE_COLORS = {
-  dashboard: { from: '#1E4C8A', to: '#0F2A52' },
-  masters: { from: '#2E5C9A', to: '#15305C' },
-  production: { from: '#1B5E8C', to: '#0D3550' },
-  quality: { from: '#3A5FA0', to: '#1C2F5C' },
-  'customer-order': { from: '#2563A8', to: '#123561' },
-  'job-order': { from: '#1E6E8C', to: '#0E3A4A' },
-  maintenance: { from: '#46618F', to: '#243654' },
-  stores: { from: '#1E4C8A', to: '#132F52' },
-}
+// Each module's colours come from theme/moduleTheme.js. `from`/`to` are kept
+// for callers that still read a two-stop gradient.
+export const MODULE_COLORS = Object.fromEntries(
+  Object.entries(MODULE_THEME).map(([key, t]) => [key, { ...t, from: t.strong, to: t.dark }])
+)
 
 const ModuleThemeContext = createContext(null)
 
+// `moduleName` is the module's label from constants.js (the app bar shows it).
+// Also sets the CSS variables behind brandblue/brandnavy/brandsky, so every
+// screen's section headers, primary buttons and links take the module colour.
+// `module-themed` switches .bg-page to the module's own gradient (index.css).
+// `display: contents` keeps the wrapper out of the layout.
 export function ModuleThemeProvider({ module, children }) {
+  const theme = moduleTheme(module)
   return (
-    <ModuleThemeContext.Provider value={MODULE_COLORS[module] ?? MODULE_COLORS.dashboard}>
-      {children}
+    <ModuleThemeContext.Provider value={{ ...theme, from: theme.strong, to: theme.dark, moduleName: moduleLabel(module) }}>
+      <div className="module-themed contents" style={themeVars(theme)}>
+        {children}
+      </div>
     </ModuleThemeContext.Provider>
   )
 }
 
 export function useModuleTheme() {
-  return useContext(ModuleThemeContext) ?? MODULE_COLORS.dashboard
+  return useContext(ModuleThemeContext) ?? { ...DEFAULT_THEME, from: DEFAULT_THEME.strong, to: DEFAULT_THEME.dark }
 }

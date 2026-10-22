@@ -129,7 +129,7 @@ export default function WeeklyPlanGridScreen() {
         onExportExcel={() => exportToCsv(exportColumns, exportRows, 'maintenance_planning.csv')}
         onExportPdf={() => exportToPdf(exportColumns, exportRows, 'Maintenance Planning', 'maintenance_planning')}
       />
-      <div className="flex-1 overflow-auto p-6 bg-[#F5F7FA]">
+      <div className="flex-1 overflow-auto p-6 bg-page">
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded mb-4">
             {error}
@@ -147,7 +147,7 @@ export default function WeeklyPlanGridScreen() {
         </div>
 
         {loading ? (
-          <p className="text-sm text-gray-400">Loading...</p>
+          <p className="text-sm text-slate-700">Loading...</p>
         ) : (
           <div className="bg-white border border-gray-200 rounded-md overflow-x-auto">
             <table className="text-sm border-collapse">

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { rotatedTheme } from '../../theme/moduleTheme'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { NAV_ITEMS } from '../../utils/constants'
@@ -33,12 +34,13 @@ describe('Masters landing entries', () => {
     expect(MASTER_ENTRIES.every((entry) => typeof entry.component === 'function')).toBe(true)
     expect(MASTER_ENTRIES.every((entry) => Boolean(entry.icon))).toBe(true)
     expect(MASTER_ENTRIES.every((entry) => entry.description?.startsWith('Manage '))).toBe(true)
-    expect(MASTER_ENTRIES.every((entry) => /^#[0-9A-F]{6}$/.test(entry.color) && /^#[0-9A-F]{6}$/.test(entry.bg))).toBe(true)
+    // Card colours rotate through the 8 module accents (theme/moduleTheme.js).
+    expect(MASTER_ENTRIES.map((entry) => MasterCard({ item: entry, onSelect: vi.fn() }).props.theme)).toEqual(MASTER_ENTRIES.map((_, i) => rotatedTheme(i)))
   })
 
   it('shows all 16 cards when Masters has no selected submenu', () => {
     const html = renderToStaticMarkup(createElement(MasterList, { activeTab: null, onSelect: vi.fn() }))
-    expect(html).toContain('Select a master module to view or manage its records.')
+    expect(html).not.toContain('Manage all your master data in one place.')
     expect(html.match(/aria-label="Open /g)).toHaveLength(16)
     EXPECTED_LABELS.forEach((label) => expect(html).toContain('>' + label + '</span>'))
   })

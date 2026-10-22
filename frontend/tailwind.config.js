@@ -8,10 +8,11 @@ export default {
         // Custom accent, renamed from `amber` so Tailwind's full amber-50..950
         // scale (status pills, warning banners) is generated again.
         'brand-amber': '#D98B2A',
-        // Brand palette -- sampled from the client's reference Customer Master screen
-        brandblue: '#1E4C8A', // Save button / header gradient light stop / links
-        brandnavy: '#0F2A52', // header gradient dark stop, footer bar, headings
-        brandsky: '#DCEAFB', // section-header / Export button pale blue fill
+        // Brand palette -- per-module via CSS variables set by ModuleThemeProvider
+        // (theme/moduleTheme.js); fallbacks are the original neutral blues.
+        brandblue: 'rgb(var(--brand-blue, 30 76 138) / <alpha-value>)', // primary Save / links
+        brandnavy: 'rgb(var(--brand-navy, 15 42 82) / <alpha-value>)', // headings, section-header text
+        brandsky: 'rgb(var(--brand-sky, 220 234 251) / <alpha-value>)', // section-header / Export pale fill
         brandslate: '#8B93A1', // Edit / Delete / Clear buttons
       },
     },

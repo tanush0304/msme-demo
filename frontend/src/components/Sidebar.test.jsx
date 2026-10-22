@@ -49,8 +49,8 @@ describe('contextual sidebar navigation', () => {
     ]
     masterScreens.forEach((label) => expect(html).toContain(label))
     expect(html.match(/aria-current="page"/g)).toHaveLength(2)
-    expect(html).toContain('bg-white text-[#173A63]')
-    expect(html).toContain('border-[#9BD86B] bg-white/15')
+    expect(html.match(/sidebar-active\b(?!-)/g)).toHaveLength(1)
+    expect(html.match(/sidebar-active-screen/g)).toHaveLength(1)
   })
 
   it('shows the selected submodule list for other modules too', () => {

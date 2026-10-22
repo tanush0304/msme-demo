@@ -61,9 +61,9 @@ export default function RecordsList({
 
   return (
     <section className="overflow-hidden rounded-2xl border border-[#CFE2F8] bg-white shadow-[0_2px_8px_rgba(16,60,120,0.06)]">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-[#CFE2F8] bg-[#E3F0FD] px-4 py-2">
-        <h2 className="flex items-center gap-2 text-[15px] font-semibold text-[#0A4CB0]">
-          <List size={17} strokeWidth={2.2} className="text-[#1669E0]" />
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-[#CFE2F8] bg-brandsky px-4 py-2">
+        <h2 className="flex items-center gap-2 text-[15px] font-semibold text-brandnavy">
+          <List size={17} strokeWidth={2.2} className="text-brandblue" />
           {title}
         </h2>
         <span className="ml-auto text-[12px] text-slate-500">
@@ -85,7 +85,7 @@ export default function RecordsList({
       <div className="overflow-x-auto">
         <table className="w-full text-[13px]">
           <thead>
-            <tr className="bg-[#F3F8FE] text-left text-[#0A4CB0]">
+            <tr className="bg-brandsky text-left text-brandnavy">
               <th className="w-12 whitespace-nowrap border-b border-[#CFE2F8] px-3 py-2 font-semibold">S.No</th>
               {columns.map((col) => {
                 const active = sort?.key === col.key
@@ -99,10 +99,10 @@ export default function RecordsList({
                     <button
                       type="button"
                       onClick={() => toggleSort(col.key)}
-                      className="inline-flex w-full items-center gap-1 px-3 py-2 text-left hover:bg-[#E3F0FD] focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#1669E0]"
+                      className="inline-flex w-full items-center gap-1 px-3 py-2 text-left hover:bg-brandsky/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#1669E0]"
                     >
                       {col.label}
-                      <SortIcon size={12} className={active ? 'text-[#1669E0]' : 'opacity-40'} aria-hidden="true" />
+                      <SortIcon size={12} className={active ? 'text-brandblue' : 'opacity-40'} aria-hidden="true" />
                     </button>
                   </th>
                 )
@@ -141,7 +141,7 @@ export default function RecordsList({
                     onClick={() => onRowClick?.(row)}
                     className={`cursor-pointer border-b border-[#E4EEFA] ${
                       selected
-                        ? 'bg-[#E3F0FD] outline outline-2 -outline-offset-2 outline-[#1669E0]'
+                        ? 'bg-brandsky/60 outline outline-2 -outline-offset-2 outline-brandblue'
                         : 'even:bg-[#F7FAFE] hover:bg-sky-50'
                     }`}
                   >
@@ -169,7 +169,7 @@ export default function RecordsList({
           <button
             type="button"
             onClick={() => setExpanded((v) => !v)}
-            className="inline-flex items-center gap-1 text-[12px] font-medium text-[#1669E0] hover:underline"
+            className="inline-flex items-center gap-1 text-[12px] font-medium text-brandblue hover:underline"
           >
             {expanded ? (
               <>

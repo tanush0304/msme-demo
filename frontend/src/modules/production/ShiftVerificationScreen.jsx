@@ -287,7 +287,7 @@ export default function ShiftVerificationScreen({ role }) {
         onExportPdf={() => exportToPdf(EXPORT_COLUMNS, exportRows, `Shift Verification – ${logDate} – Shift ${shiftCode}`, exportName)}
       />
 
-      <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
+      <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-page">
         {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{error}</div>}
         {notice && <div className="bg-green-50 border border-green-200 text-green-800 text-sm px-4 py-2 rounded">{notice}</div>}
 
@@ -345,7 +345,7 @@ export default function ShiftVerificationScreen({ role }) {
             />
           </>
         ) : (
-          <p className="text-sm text-gray-500 px-1">Pick a date and shift to see every machine for that shift.</p>
+          <p className="text-sm text-slate-700 px-1">Pick a date and shift to see every machine for that shift.</p>
         )}
 
         {selected && (

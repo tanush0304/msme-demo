@@ -266,7 +266,7 @@ export default function ProductionPlanningScreen() {
         onExportPdf={() => exportToPdf(LIST_COLUMNS, filteredPlans, 'Production Planning', 'production_planning')}
       />
 
-      <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
+      <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-page">
         {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{error}</div>}
         {notice && <div className="bg-green-50 border border-green-200 text-green-800 text-sm px-4 py-2 rounded">{notice}</div>}
 
@@ -401,7 +401,7 @@ export default function ProductionPlanningScreen() {
           onSearchChange={setSearch}
           searchPlaceholder="Search by PRD / JC / PO / Customer / Product..."
         />
-        <div className="text-xs text-gray-500 px-1">Total Records: {filteredPlans.length}</div>
+        <div className="text-xs text-slate-700 px-1">Total Records: {filteredPlans.length}</div>
       </div>
     </div>
   )

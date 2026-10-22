@@ -22,12 +22,12 @@ export default function FormSection({ icon: Icon, title, subtitle, columns, chil
           card) so a child dropdown's popup panel -- e.g. MultiSelectDropdown,
           absolutely positioned inside this card -- can render past the
           card's own edge instead of being clipped by it. */}
-      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 rounded-t-2xl border-b border-[#CFE2F8] bg-[#E3F0FD] px-4 py-2">
-        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#1669E0] text-[12px] font-bold text-white">
+      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 rounded-t-2xl border-b border-[#CFE2F8] bg-brandsky px-4 py-2">
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brandblue text-[12px] font-bold text-white">
           {number}
         </span>
-        {Icon && <Icon size={16} strokeWidth={2.2} className="shrink-0 text-[#1669E0]" />}
-        <h2 className="min-w-0 truncate text-[15px] font-semibold text-[#0A4CB0]">{displayTitle}</h2>
+        {Icon && <Icon size={16} strokeWidth={2.2} className="shrink-0 text-brandblue" />}
+        <h2 className="min-w-0 truncate text-[15px] font-semibold text-brandnavy">{displayTitle}</h2>
         {subtitle && (
           <span className="ml-auto truncate pl-2 text-[12px] font-normal text-slate-500">{subtitle}</span>
         )}

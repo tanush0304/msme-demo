@@ -213,7 +213,7 @@ export default function ChecklistEntryScreen({ role }) {
         onExportExcel={() => exportToCsv(logColumns, filteredRecentLogs, 'maintenance_visits.csv')}
         onExportPdf={() => exportToPdf(logColumns, filteredRecentLogs, 'Recent Maintenance Visits', 'maintenance_visits')}
       />
-      <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
+      <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-page">
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">
             {error}

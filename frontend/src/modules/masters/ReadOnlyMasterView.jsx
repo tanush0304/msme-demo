@@ -61,7 +61,7 @@ export default function ReadOnlyMasterView({ title, subtitle, loadRows, columns,
         onExportExcel={() => exportToCsv(columns, visibleRecords, `${fileBase}.csv`)}
         onExportPdf={() => exportToPdf(columns, visibleRecords, title, fileBase)}
       />
-      <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
+      <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-page">
         <RecordsList
           title={`${title} Records`}
           columns={listColumns}

@@ -533,7 +533,7 @@ export default function ProductionDataEntryScreen({ role }) {
         subtitle="Employee picks the order + machine; the stage resolves itself"
       />
 
-      <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
+      <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-page">
         {/* Grid's date + shift (an earlier date while correcting a rejected shift). */}
         <ShiftDateLine date={entryDate} shiftCode={shiftCode} shifts={shifts} />
         {error && (

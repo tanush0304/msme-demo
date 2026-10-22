@@ -279,7 +279,7 @@ export default function WipReceiptScreen({ role }) {
         onExportExcel={() => exportToCsv(HISTORY_COLUMNS, filteredTransactions, `wip_receipts_${form.prd_no}.csv`)}
         onExportPdf={() => exportToPdf(HISTORY_COLUMNS, filteredTransactions, `WIP Transaction History -- ${form.prd_no}`, `wip_receipts_${form.prd_no}`)}
       />
-      <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
+      <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-page">
         {/* The transaction date that will be saved (today) + the chosen shift. */}
         <ShiftDateLine date={todayISO()} shiftCode={form.shift_code} shifts={shifts} />
         {error && (

@@ -13,3 +13,4 @@ frontend/.env.test
 !.env.example
 .env.demo
 .vite/
+refernce/

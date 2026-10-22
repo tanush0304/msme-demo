@@ -59,7 +59,7 @@ export default function ProductionScheduleScreen() {
         onExportExcel={() => exportToCsv(COLUMNS, filtered, 'production_schedule.csv')}
         onExportPdf={() => exportToPdf(COLUMNS, filtered, 'Production Schedule', 'production_schedule')}
       />
-      <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
+      <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-page">
         <RecordsList
           title="Route Card Stages"
           columns={COLUMNS}

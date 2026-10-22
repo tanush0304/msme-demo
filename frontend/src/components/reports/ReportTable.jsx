@@ -66,7 +66,7 @@ export default function ReportTable({ title, columns, rows, totalsRow, groupHead
   return (
     <section className="overflow-hidden rounded-xl border border-[#D6E4F5] bg-white shadow-[0_2px_6px_rgba(16,60,120,0.08)]">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 bg-gradient-to-r from-[#EAF3FE] to-white px-3 py-2">
-        <h2 className="flex items-center gap-2.5 text-[17px] font-bold text-[#0B2A5B]">
+        <h2 className="flex items-center gap-2.5 text-[17px] font-bold text-brandnavy">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[#1E5FD0] text-white">
             <List size={20} strokeWidth={2.4} />
           </span>
@@ -110,7 +110,7 @@ export default function ReportTable({ title, columns, rows, totalsRow, groupHead
         <table className="w-full text-[13px]">
           <thead className="sticky top-0 z-10">
             {groupHeaders && (
-              <tr className="bg-[#1450B4] text-white">
+              <tr className="bg-brandnavy text-white">
                 {showSerial && <th className="border-b border-white/20" />}
                 {groupHeaders.map((g, i) => (
                   <th key={i} colSpan={g.span} className="whitespace-nowrap border-b border-l border-white/20 px-3 py-1.5 text-center font-semibold">
@@ -119,10 +119,10 @@ export default function ReportTable({ title, columns, rows, totalsRow, groupHead
                 ))}
               </tr>
             )}
-            <tr className="bg-[#1450B4] text-white">
+            <tr className="bg-brandsky text-brandnavy">
               {showSerial && <th className="w-14 whitespace-nowrap px-3 py-2 text-center font-semibold">Sl No</th>}
               {columns.map((col) => (
-                <th key={col.key} className="whitespace-nowrap border-l border-white/15 px-3 py-2 text-center font-semibold">
+                <th key={col.key} className="whitespace-nowrap border-l border-brandnavy/10 px-3 py-2 text-center font-semibold">
                   {col.label}
                 </th>
               ))}

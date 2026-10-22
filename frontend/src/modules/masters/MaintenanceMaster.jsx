@@ -187,7 +187,7 @@ export default function MaintenanceMaster() {
         onExportExcel={() => exportToCsv(LIST_COLUMNS, filteredRecords, 'maintenance_master.csv')}
         onExportPdf={() => exportToPdf(LIST_COLUMNS, filteredRecords, 'Maintenance Master', 'maintenance_master')}
       />
-      <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
+      <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-page">
         {(saveError || error) && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{saveError || error}</div>}
         {scheduleError && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{scheduleError}</div>}
 

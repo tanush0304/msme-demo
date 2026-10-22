@@ -71,7 +71,7 @@ export default function OrderTraceabilityScreen({ initialPrdNo = '' }) {
         onExportExcel={() => exportToCsv(trace.columns, trace.rows, `order_trace_${prdNo}.csv`)}
         onExportPdf={() => exportToPdf(trace.columns, trace.rows, `Order Traceability -- ${prdNo}`, `order_trace_${prdNo}`)}
       />
-      <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
+      <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-page">
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">
             {error}

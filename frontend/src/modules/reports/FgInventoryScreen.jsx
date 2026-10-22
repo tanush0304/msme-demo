@@ -168,7 +168,7 @@ export default function FgInventoryScreen() {
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader title="Finished Goods Inventory Report" subtitle="Right Material | Right Quantity | Right Production" />
-      <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
+      <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-page">
         <ReportFilterBar
           {...r.barProps}
           loading={loading}

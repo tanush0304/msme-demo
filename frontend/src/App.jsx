@@ -107,7 +107,7 @@ function App() {
   }
 
   if (session === undefined) {
-    return <div className="min-h-screen flex items-center justify-center bg-[#F5F7FA] text-gray-400 text-sm">Loading...</div>
+    return <div className="min-h-screen flex items-center justify-center bg-page text-gray-400 text-sm">Loading...</div>
   }
 
   if (!session) {
@@ -115,7 +115,7 @@ function App() {
   }
 
   if (role === undefined) {
-    return <div className="min-h-screen flex items-center justify-center bg-[#F5F7FA] text-gray-400 text-sm">Loading...</div>
+    return <div className="min-h-screen flex items-center justify-center bg-page text-gray-400 text-sm">Loading...</div>
   }
 
   if (showMainMenu) {
@@ -154,7 +154,7 @@ function App() {
   else content = <ComingSoon title={TITLES[activeKey] ?? activeKey} />
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#F5F7FA]">
+    <div className="flex h-screen overflow-hidden bg-page">
       <Sidebar
         activeKey={activeKey}
         activeSubKey={activeSubKey}
@@ -170,7 +170,7 @@ function App() {
           {/* Shared content column: min-w-0 lets every screen shrink to the
               space beside the sidebar (a flex item's default min-width is its
               content, which pushed wide pages past the viewport). */}
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <div className="bg-page flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
             <Suspense fallback={<div className="flex-1 flex items-center justify-center text-gray-400 text-sm">Loading...</div>}>{content}</Suspense>
           </div>
         </PageHeaderBandProvider>

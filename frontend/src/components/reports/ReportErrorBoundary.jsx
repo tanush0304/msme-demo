@@ -24,7 +24,7 @@ export default class ReportErrorBoundary extends Component {
   render() {
     if (!this.state.error) return this.props.children
     return (
-      <div role="alert" className="flex flex-1 flex-col items-center justify-center gap-3 bg-[#F5F7FA] p-6 text-center">
+      <div role="alert" className="flex flex-1 flex-col items-center justify-center gap-3 bg-page p-6 text-center">
         <TriangleAlert size={36} className="text-amber-500" aria-hidden="true" />
         <h2 className="text-lg font-semibold text-[#0B2A5B]">This report couldn&apos;t load</h2>
         <p className="max-w-md text-sm text-slate-600">Something went wrong while showing this report. Go back and try again; if it keeps happening, tell the system administrator.</p>
