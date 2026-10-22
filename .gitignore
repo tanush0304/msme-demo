@@ -14,3 +14,4 @@ frontend/.env.test
 .env.demo
 .vite/
 refernce/
+scripts/

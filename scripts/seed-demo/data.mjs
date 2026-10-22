@@ -223,24 +223,25 @@ export const CYCLE_TIMES = [
   internal('PART-106', 20, 'Threading', 'MC-04', 2.5),
 ]
 
-const qp = (part_serial_number, machine_id, type_of_operation, quality_parameter, standard, upper_tolerance, lower_tolerance, unit_of_measurement) => ({
-  part_serial_number, machine_id, type_of_operation, quality_parameter, standard, upper_tolerance, lower_tolerance, unit_of_measurement, remarks: null,
+// Same columns QualityMaster sends -- "quality master" has no UoM column.
+const qp = (part_serial_number, machine_id, type_of_operation, quality_parameter, standard, upper_tolerance, lower_tolerance) => ({
+  part_serial_number, machine_id, type_of_operation, quality_parameter, standard, upper_tolerance, lower_tolerance, remarks: null,
 })
 /** Tolerances are positive bands: accepted range = standard - lower .. standard + upper. */
 export const QUALITY_PARAMETERS = [
-  qp('PART-101', 'MC-01', 'Cutting', 'Cut Length', 85, 0.5, 0.5, 'mm'),
-  qp('PART-101', 'MC-03', 'Rough Turning', 'Outer Diameter', 38.5, 0.1, 0.1, 'mm'),
-  qp('PART-101', 'MC-05', 'Milling', 'Slot Width', 12, 0.05, 0.05, 'mm'),
-  qp('PART-101', 'MC-05', 'Milling', 'Slot Depth', 5, 0.1, 0.1, 'mm'),
-  qp('PART-101', 'MC-07', 'Grinding', 'Ground Diameter', 38, 0.02, 0.02, 'mm'),
-  qp('PART-101', 'MC-07', 'Grinding', 'Surface Roughness Ra', 0.8, 0.2, 0.8, 'micron'),
-  qp('PART-102', 'MC-03', 'Finish Turning', 'Shaft Diameter', 30, 0.02, 0.02, 'mm'),
-  qp('PART-103', 'MC-01', 'Cutting', 'Blank Thickness', 12, 0.3, 0.3, 'mm'),
-  qp('PART-103', 'MC-04', 'Facing', 'Flange Thickness', 10, 0.1, 0.1, 'mm'),
-  qp('PART-104', 'MC-03', 'Rough Turning', 'Outer Diameter', 60.5, 0.1, 0.1, 'mm'),
-  qp('PART-104', 'MC-03', 'Rough Turning', 'Overall Length', 45, 0.2, 0.2, 'mm'),
-  qp('PART-105', 'MC-05', 'Milling', 'Bore Diameter', 52, 0.03, 0.03, 'mm'),
-  qp('PART-106', 'MC-04', 'Threading', 'Thread Length', 25, 0.2, 0.2, 'mm'),
+  qp('PART-101', 'MC-01', 'Cutting', 'Cut Length', 85, 0.5, 0.5),
+  qp('PART-101', 'MC-03', 'Rough Turning', 'Outer Diameter', 38.5, 0.1, 0.1),
+  qp('PART-101', 'MC-05', 'Milling', 'Slot Width', 12, 0.05, 0.05),
+  qp('PART-101', 'MC-05', 'Milling', 'Slot Depth', 5, 0.1, 0.1),
+  qp('PART-101', 'MC-07', 'Grinding', 'Ground Diameter', 38, 0.02, 0.02),
+  qp('PART-101', 'MC-07', 'Grinding', 'Surface Roughness Ra', 0.8, 0.2, 0.8),
+  qp('PART-102', 'MC-03', 'Finish Turning', 'Shaft Diameter', 30, 0.02, 0.02),
+  qp('PART-103', 'MC-01', 'Cutting', 'Blank Thickness', 12, 0.3, 0.3),
+  qp('PART-103', 'MC-04', 'Facing', 'Flange Thickness', 10, 0.1, 0.1),
+  qp('PART-104', 'MC-03', 'Rough Turning', 'Outer Diameter', 60.5, 0.1, 0.1),
+  qp('PART-104', 'MC-03', 'Rough Turning', 'Overall Length', 45, 0.2, 0.2),
+  qp('PART-105', 'MC-05', 'Milling', 'Bore Diameter', 52, 0.03, 0.03),
+  qp('PART-106', 'MC-04', 'Threading', 'Thread Length', 25, 0.2, 0.2),
 ]
 
 const CATEGORY_CHECKLIST = {
