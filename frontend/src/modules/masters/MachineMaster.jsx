@@ -1,0 +1,208 @@
+import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
+import { useEffect, useState } from 'react'
+import { Factory, Cog, ListChecks } from 'lucide-react'
+import PageHeader from '../../components/PageHeader'
+import ActionToolbar from '../../components/ActionToolbar'
+import FormSection, { Field, TextInput } from '../../components/FormSection'
+import MultiSelectDropdown from '../../components/MultiSelectDropdown'
+import RecordsList from '../../components/RecordsList'
+import SelectWithAddNew, { mergeOptions } from '../../components/SelectWithAddNew'
+import { listMachines, createMachine, updateMachine, deleteMachine } from '../../data/queries/machines'
+import { listOperationsForMachine, setMachineOperations } from '../../data/queries/machineOperations'
+import { listMachineOperationOptions, createMachineOperationOption } from '../../data/queries/operationsMaster'
+
+const EMPTY_FORM = {
+  machine_id: '',
+  machine_name: '',
+  manufacturer_name: '',
+  category: '',
+  model: '',
+  chuck_dia: '',
+  x_axis: '',
+  y_axis: '',
+  fifth_axis: '',
+  dia: '',
+  remarks: '',
+}
+
+// Built-in categories; values typed via "+ Add new…" are saved on the
+// machine and offered to everyone after that.
+const BUILT_IN_CATEGORIES = ['Cutting', 'CNC Turning', 'VMC', 'Grinding']
+
+const LIST_COLUMNS = [
+  { key: 'machine_id', label: 'Machine ID' },
+  { key: 'machine_name', label: 'Machine Name' },
+  { key: 'category', label: 'Category' },
+  { key: 'manufacturer_name', label: 'Manufacturer Name' },
+  { key: 'model', label: 'Model' },
+]
+
+export default function MachineMaster() {
+  const [records, setRecords] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [listSearch, setListSearch] = useState('')
+  const [form, setForm] = useState(EMPTY_FORM)
+  const [operations, setOperations] = useState([])
+  const [operationOptions, setOperationOptions] = useState([])
+  const [mode, setMode] = useState('new')
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState(null)
+
+  async function refresh() {
+    setLoading(true)
+    setError(null)
+    try {
+      const [machs, opts] = await Promise.all([listMachines(), listMachineOperationOptions()])
+      setRecords(machs)
+      setOperationOptions(opts)
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { refresh() }, [])
+
+  function handleField(key) {
+    return (e) => setForm((current) => ({ ...current, [key]: e.target.value }))
+  }
+
+  function handleNew() {
+    setForm(EMPTY_FORM)
+    setOperations([])
+    setMode('new')
+    setSaveError(null)
+  }
+
+  function handleClear() { handleNew() }
+
+  async function handleRowClick(row) {
+    setForm({ ...EMPTY_FORM, ...row })
+    setMode('view')
+    setSaveError(null)
+    try {
+      const ops = await listOperationsForMachine(row.machine_id)
+      setOperations(ops.map((operation) => operation.operation))
+    } catch (e) {
+      setSaveError(e.message)
+    }
+  }
+
+  function handleEdit() {
+    if (form.machine_id) setMode('edit')
+  }
+
+  async function handleSave() {
+    if (!form.machine_id || !form.machine_name) {
+      setSaveError('Machine ID and Machine Name are required.')
+      return
+    }
+    setSaving(true)
+    setSaveError(null)
+    try {
+      if (mode === 'edit') await updateMachine(form.machine_id, form)
+      else await createMachine(form)
+
+      const validOperations = operations.filter(Boolean)
+      const newOperations = validOperations.filter((operation) => !operationOptions.includes(operation))
+      for (const operation of newOperations) await createMachineOperationOption(operation)
+      if (newOperations.length > 0) setOperationOptions((options) => [...options, ...newOperations].sort())
+      await setMachineOperations(form.machine_id, validOperations)
+      await refresh()
+      setMode('view')
+    } catch (e) {
+      setSaveError(e.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleDelete() {
+    if (!form.machine_id || !confirm(`Delete machine ${form.machine_id}? This cannot be undone.`)) return
+    setSaving(true)
+    setSaveError(null)
+    try {
+      await deleteMachine(form.machine_id)
+      await refresh()
+      handleClear()
+    } catch (e) {
+      setSaveError(e.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const filteredRecords = records.filter((row) => {
+    if (!listSearch) return true
+    const query = listSearch.toLowerCase()
+    return row.machine_id?.toLowerCase().includes(query) || row.machine_name?.toLowerCase().includes(query)
+  })
+  const readOnly = mode === 'view'
+  const idLocked = mode !== 'new'
+
+  return (
+    <div className="flex-1 flex flex-col min-w-0 min-h-0">
+      <PageHeader title="Machine Master" subtitle="Manage Machine Inventory  |  Track Assets & Capabilities" />
+      <ActionToolbar
+        onNew={handleNew}
+        onSave={handleSave}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+        onClear={handleClear}
+        canSave={!readOnly && !saving}
+        canEdit={mode === 'view'}
+        canDelete={mode !== 'new' && !saving}
+        onExportExcel={() => exportToCsv(LIST_COLUMNS, filteredRecords, 'machine_master.csv')}
+        onExportPdf={() => exportToPdf(LIST_COLUMNS, filteredRecords, 'Machine Master', 'machine_master')}
+      />
+      <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#F5F7FA]">
+        {saveError && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{saveError}</div>}
+        <div className="flex flex-col gap-3">
+          <FormSection icon={Factory} title="1. Machine Details" subtitle="Identity and classification">
+            <Field label="Machine ID" required>
+              <TextInput value={form.machine_id} onChange={handleField('machine_id')} disabled={idLocked} />
+            </Field>
+            <Field label="Machine Name" required>
+              <TextInput value={form.machine_name} onChange={handleField('machine_name')} disabled={readOnly} />
+            </Field>
+            <Field label="Manufacturer Name">
+              <TextInput value={form.manufacturer_name} onChange={handleField('manufacturer_name')} disabled={readOnly} />
+            </Field>
+            <Field label="Category">
+              <SelectWithAddNew value={form.category} onChange={handleField('category')} disabled={readOnly} options={mergeOptions(BUILT_IN_CATEGORIES, records.map((r) => r.category))} placeholder="Type new category" />
+            </Field>
+          </FormSection>
+          <FormSection icon={Cog} title="2. Model Details" subtitle="Machine model and specification" columns={3}>
+            <Field label="Model"><TextInput value={form.model} onChange={handleField('model')} disabled={readOnly} /></Field>
+            {/* Free text, as in the client's Machine Master sheet ("No Specification", "> 250 x 500"). */}
+            <Field label="Chuck Dia"><TextInput value={form.chuck_dia ?? ''} onChange={handleField('chuck_dia')} disabled={readOnly} /></Field>
+            <Field label="X Axis"><TextInput value={form.x_axis ?? ''} onChange={handleField('x_axis')} disabled={readOnly} /></Field>
+            <Field label="Y Axis"><TextInput value={form.y_axis ?? ''} onChange={handleField('y_axis')} disabled={readOnly} /></Field>
+            <Field label="5th Axis"><TextInput value={form.fifth_axis ?? ''} onChange={handleField('fifth_axis')} disabled={readOnly} /></Field>
+            <Field label="Dia"><TextInput value={form.dia ?? ''} onChange={handleField('dia')} disabled={readOnly} /></Field>
+            <Field label="Remarks" width="long"><TextInput value={form.remarks ?? ''} onChange={handleField('remarks')} disabled={readOnly} /></Field>
+          </FormSection>
+          <FormSection icon={ListChecks} title="3. Nature of Operation" subtitle="Operations this machine runs">
+            <Field label="Operations Performed" width="long">
+              <MultiSelectDropdown options={operationOptions} selected={operations} onChange={setOperations} disabled={readOnly} placeholder="Select operations..." key={mode === 'new' ? 'new' : form.machine_id} />
+            </Field>
+          </FormSection>
+        </div>
+        <RecordsList
+          title="Machine Master List"
+          columns={LIST_COLUMNS}
+          rows={filteredRecords}
+          loading={loading}
+          error={error}
+          rowKey="machine_id"
+          selectedKey={form.machine_id}
+          onRowClick={handleRowClick}
+          searchValue={listSearch}
+          onSearchChange={setListSearch} searchPlaceholder="Search by Machine ID / Name..."
+        />
+      </div>
+    </div>
+  )
+}

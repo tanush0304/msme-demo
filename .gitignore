@@ -1,0 +1,15 @@
+
+.history/
+.ppt-preview/
+
+docs/
+reference/
+backend/migrations/005*.sql
+backend/migrations/008_load_maintenance_checklists.sql
+backend/migrations/cleanup_test_data.sql
+frontend/.env.test
+
+.env*
+!.env.example
+.env.demo
+.vite/
