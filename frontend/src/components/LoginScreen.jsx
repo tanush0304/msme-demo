@@ -96,7 +96,7 @@ export default function LoginScreen() {
             <button
               type="submit"
               disabled={loading}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#00B050] px-5 py-3 text-base font-semibold text-white shadow-[0_6px_20px_rgba(4,23,52,0.22)] transition hover:bg-[#00C55A] focus:outline-none focus:ring-4 focus:ring-white/40 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#15803D] px-5 py-3 text-base font-semibold text-white shadow-[0_6px_20px_rgba(4,23,52,0.22)] transition hover:bg-[#166534] focus:outline-none focus:ring-4 focus:ring-white/40 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <LogIn size={17} />
               {loading ? 'Please wait...' : 'Sign in'}

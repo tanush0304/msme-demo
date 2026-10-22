@@ -13,7 +13,7 @@ export default function ReportFilterBar({ period, from, to, onPeriodChange, onFr
   return (
     <section className="rounded-xl border border-[#D6E4F5] bg-[#F4F8FE] px-4 py-3 shadow-[0_2px_6px_rgba(16,60,120,0.08)]">
       <div className="flex flex-wrap items-end gap-3 [&_label>span:first-child]:text-[13px] [&_label>span:first-child]:font-bold [&_label>span:first-child]:text-[#0B2A5B]">
-        <span className="mb-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[#1E5FD0] text-white" aria-hidden="true">
+        <span className="mb-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-brandblue text-white" aria-hidden="true">
           <CalendarDays size={22} />
         </span>
         <Field label="Period" width="short">
@@ -42,14 +42,14 @@ export default function ReportFilterBar({ period, from, to, onPeriodChange, onFr
             type="button"
             onClick={onSearch}
             disabled={loading || !from || !to || from > to}
-            className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#1E6FE8] px-6 text-[14px] font-semibold text-white shadow-sm hover:bg-[#165BC4] disabled:opacity-50"
+            className="inline-flex h-9 items-center gap-2 rounded-lg bg-brandblue px-6 text-[14px] font-semibold text-white shadow-sm hover:bg-brandnavy disabled:opacity-50"
           >
             <Search size={17} /> Search
           </button>
           <button
             type="button"
             onClick={onReset}
-            className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#1E5FD0] bg-white px-6 text-[14px] font-semibold text-[#0B2A5B] hover:bg-[#E3F0FD]"
+            className="inline-flex h-9 items-center gap-2 rounded-lg border border-brandblue bg-white px-6 text-[14px] font-semibold text-brandnavy hover:bg-brandsky/60"
           >
             <RotateCcw size={17} /> Reset
           </button>

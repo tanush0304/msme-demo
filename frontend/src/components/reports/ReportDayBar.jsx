@@ -4,7 +4,7 @@ import { addDays } from '../../utils/reportPeriods'
 import { todayISO } from '../../utils/dates'
 import ChartTypeToggle from './ChartTypeToggle'
 
-const BTN = 'inline-flex h-9 items-center gap-2 rounded-lg border border-[#1E5FD0] bg-white px-5 text-[14px] font-semibold text-[#0B2A5B] hover:bg-[#E3F0FD] disabled:opacity-50'
+const BTN = 'inline-flex h-9 items-center gap-2 rounded-lg border border-brandblue bg-white px-5 text-[14px] font-semibold text-brandnavy hover:bg-brandsky/60 disabled:opacity-50'
 
 /** Single-date filter (Daily reports): date, Today, Previous / Next Day, Refresh.
  * Next Day stops at today. `children` = extra filter fields after the date
@@ -14,7 +14,7 @@ export default function ReportDayBar({ date, onDateChange, onRefresh, loading, c
   return (
     <section className="rounded-xl border border-[#D6E4F5] bg-[#F4F8FE] px-4 py-3 shadow-[0_2px_6px_rgba(16,60,120,0.08)]">
       <div className="flex flex-wrap items-end gap-3 [&_label>span:first-child]:text-[13px] [&_label>span:first-child]:font-bold [&_label>span:first-child]:text-[#0B2A5B]">
-        <span className="mb-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[#1E5FD0] text-white" aria-hidden="true">
+        <span className="mb-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-brandblue text-white" aria-hidden="true">
           <CalendarDays size={22} />
         </span>
         <Field label="Date" width="short" className="max-w-[200px]">
@@ -23,7 +23,7 @@ export default function ReportDayBar({ date, onDateChange, onRefresh, loading, c
         <button
           type="button"
           onClick={() => onDateChange(today)}
-          className="inline-flex h-9 items-center rounded-lg bg-[#1E5FD0] px-8 text-[14px] font-semibold text-white shadow-sm hover:bg-[#164CB0]"
+          className="inline-flex h-9 items-center rounded-lg bg-brandblue px-8 text-[14px] font-semibold text-white shadow-sm hover:bg-brandnavy"
         >
           Today
         </button>

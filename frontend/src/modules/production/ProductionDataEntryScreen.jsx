@@ -695,7 +695,7 @@ export default function ProductionDataEntryScreen({ role }) {
               <button
                 onClick={handleStart}
                 disabled={starting || !!activeLog || !!substituteError || !canStartStage({ available: plannedQty, earlierIncomplete, confirmed: confirmEarlier })}
-                className="bg-green-600 text-white rounded px-3 py-1.5 text-xs font-medium disabled:opacity-40 hover:bg-green-700"
+                className="bg-brandblue text-white rounded px-3 py-1.5 text-xs font-medium disabled:opacity-40 hover:bg-brandnavy"
               >
                 {activeLog ? 'Started' : starting ? 'Starting...' : 'Start Production'}
               </button>
@@ -765,7 +765,7 @@ export default function ProductionDataEntryScreen({ role }) {
               <button
                 onClick={handleMarkComplete}
                 disabled={completing}
-                className="inline-flex items-center gap-1.5 bg-green-600 text-white rounded px-3 py-1.5 text-sm font-medium disabled:opacity-40 hover:bg-green-700"
+                className="inline-flex items-center gap-1.5 bg-brandblue text-white rounded px-3 py-1.5 text-sm font-medium disabled:opacity-40 hover:bg-brandnavy"
               >
                 <CheckCircle2 size={15} />
                 {completing ? 'Marking Complete...' : 'Mark Stage Complete'}

@@ -8,9 +8,9 @@ import { Plus, Save, Pencil, Trash2, X, Printer, ChevronDown, FileSpreadsheet, F
 // shown disabled on screens that opt out of export (showExport={false}).
 const BTN =
   'inline-flex h-9 min-w-[96px] items-center justify-center gap-2 rounded-lg px-4 text-[13.5px] font-medium shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brandblue focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60'
-const BTN_GREEN = `${BTN} bg-[#1E9E4A] text-white hover:bg-[#17843D] disabled:hover:bg-[#1E9E4A]`
+const BTN_GREEN = `${BTN} bg-[#15803D] text-white hover:bg-[#166534] disabled:hover:bg-[#15803D]`
 const BTN_BLUE = `${BTN} bg-brandblue text-white hover:bg-brandnavy disabled:hover:bg-brandblue`
-const BTN_GREY = `${BTN} bg-[#8C98A8] text-white hover:bg-[#76828F] disabled:hover:bg-[#8C98A8]`
+const BTN_GREY = `${BTN} bg-[#64748B] text-white hover:bg-[#475569] disabled:hover:bg-[#64748B]`
 const BTN_RED = `${BTN} bg-[#C62828] text-white hover:bg-[#A61F1F] disabled:hover:bg-[#C62828]`
 const BTN_LIGHT = `${BTN} min-w-[120px] border border-[#A9C6EE] bg-[#E6F0FD] text-[#0B2A5B] hover:bg-[#D6E6FB] disabled:hover:bg-[#E6F0FD]`
 

@@ -67,7 +67,7 @@ export default function ReportTable({ title, columns, rows, totalsRow, groupHead
     <section className="overflow-hidden rounded-xl border border-[#D6E4F5] bg-white shadow-[0_2px_6px_rgba(16,60,120,0.08)]">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 bg-gradient-to-r from-[#EAF3FE] to-white px-3 py-2">
         <h2 className="flex items-center gap-2.5 text-[17px] font-bold text-brandnavy">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[#1E5FD0] text-white">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-brandblue text-white">
             <List size={20} strokeWidth={2.4} />
           </span>
           {title}
@@ -89,7 +89,7 @@ export default function ReportTable({ title, columns, rows, totalsRow, groupHead
             type="button"
             onClick={() => setPrintOpen((v) => !v)}
             disabled={loading || filtered.length === 0}
-            className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#1F8A3B] px-4 text-[14px] font-semibold text-white shadow-sm hover:bg-[#18742F] disabled:opacity-50"
+            className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#15803D] px-4 text-[14px] font-semibold text-white shadow-sm hover:bg-[#166534] disabled:opacity-50"
           >
             <FileSpreadsheet size={18} /> Export <ChevronDown size={15} />
           </button>

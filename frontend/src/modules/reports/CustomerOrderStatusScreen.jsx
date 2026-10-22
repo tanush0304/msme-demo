@@ -103,7 +103,7 @@ export default function CustomerOrderStatusScreen({ onOpenTraceability }) {
           disabled={!row.prds.length}
           title={row.prds.length ? `Trace ${row.prds[0]}` : 'Not planned yet'}
           onClick={() => onOpenTraceability?.(row.prds[0])}
-          className="inline-flex items-center gap-1.5 rounded border border-[#1E5FD0] px-3 py-0.5 text-[12px] font-semibold text-[#1E5FD0] hover:bg-[#E3F0FD]"
+          className="inline-flex items-center gap-1.5 rounded border border-brandblue px-3 py-0.5 text-[12px] font-semibold text-brandblue hover:bg-brandsky/60"
         >
           <Eye size={14} /> View
         </button>

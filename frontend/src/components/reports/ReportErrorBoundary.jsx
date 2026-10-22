@@ -31,7 +31,7 @@ export default class ReportErrorBoundary extends Component {
         <button
           type="button"
           onClick={this.props.onBack}
-          className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#1E6FE8] px-6 text-[14px] font-semibold text-white shadow-sm hover:bg-[#165BC4]"
+          className="inline-flex h-9 items-center gap-2 rounded-lg bg-brandblue px-6 text-[14px] font-semibold text-white shadow-sm hover:bg-brandnavy"
         >
           <ArrowLeft size={16} /> Back
         </button>

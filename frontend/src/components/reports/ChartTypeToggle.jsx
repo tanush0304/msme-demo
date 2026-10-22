@@ -40,7 +40,7 @@ export default function ChartTypeToggle() {
             aria-pressed={active}
             onClick={() => ctx.setType(value)}
             className={`inline-flex items-center gap-1.5 px-3 text-[13px] font-medium ${
-              active ? 'bg-[#1669E0] text-white' : 'text-slate-600 hover:bg-[#E6F0FD]'
+              active ? 'bg-brandblue text-white' : 'text-slate-600 hover:bg-[#E6F0FD]'
             }`}
           >
             <Icon size={15} /> {label}

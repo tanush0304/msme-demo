@@ -511,7 +511,7 @@ export default function ShiftVerificationScreen({ role }) {
                     onClick={() => decide('Approved')}
                     disabled={acting || Boolean(blockedReason)}
                     title={blockedReason ?? undefined}
-                    className="bg-green-600 text-white rounded px-3 py-1.5 text-xs font-medium disabled:opacity-40 hover:bg-green-700"
+                    className="bg-[#15803D] text-white rounded px-3 py-1.5 text-xs font-medium disabled:opacity-40 hover:bg-[#166534]"
                   >
                     {acting ? 'Saving...' : 'Approve'}
                   </button>
