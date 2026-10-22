@@ -27,28 +27,32 @@ export function DevelopedByLogo({ className = 'flex' }) {
   )
 }
 
-// White app bar shared by every screen and Home, as a 3-column grid so the
-// title sits truly centred: "Developed by" Pragati & Unnati left, title (+
-// CLIENT_NAME when set) centre, `children` + optional client logo right.
+// White app bar shared by every screen and Home. From sm it's a 3-column grid
+// so the title sits truly centred: "Developed by" Pragati & Unnati left,
+// title (+ CLIENT_NAME when set) centre, `children` + optional client logo
+// right. Below sm it's a plain row -- compact logo (96px) then the title
+// filling the rest; the title wraps to at most 2 lines (then ellipsis) and
+// keeps up to 6rem, so the logo gives way first when space is very tight
+// (e.g. sidebar open on a phone).
 // Home shows "Data Management System" in navy; module screens pass their
-// module name and accent. `compactLogo` also shows the small Pragati & Unnati
-// logo below lg (Home).
+// module name and accent. `compactLogo` shows the small Pragati & Unnati
+// logo below lg (Home and module screens).
 export function AppBar({ children, compactLogo = false, title = 'Data Management System', titleColor = '#0F2A52' }) {
   return (
-    <header className="relative grid h-[78px] shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-3 border-b border-slate-200/80 bg-white/95 shadow-[0_1px_6px_rgba(15,42,82,0.05)]">
+    <header className="relative flex h-[78px] shrink-0 items-center gap-3 sm:grid sm:grid-cols-[minmax(0,1fr)_minmax(0,auto)_minmax(0,1fr)] border-b border-slate-200/80 bg-white/95 shadow-[0_1px_6px_rgba(15,42,82,0.05)]">
       <div className="flex min-w-0 items-center">
         {compactLogo && (
-          <img src={pragatiUnnatiLogo} alt="Pragati & Unnati — Together Towards a Better Tomorrow" className="ml-4 w-[120px] shrink-0 object-contain sm:w-[150px] lg:hidden" />
+          <img src={pragatiUnnatiLogo} alt="Pragati & Unnati — Together Towards a Better Tomorrow" className="ml-4 w-[96px] min-w-0 max-w-[calc(100%-1rem)] object-contain sm:w-[150px] lg:hidden" />
         )}
         <DevelopedByLogo className="hidden lg:flex" />
       </div>
-      <div className="min-w-0 max-w-[48vw] text-center">
-        <p className="truncate text-[20px] font-extrabold leading-tight tracking-tight sm:text-[24px] lg:text-[30px]" style={{ color: titleColor }}>
+      <div className={`min-w-[min(6rem,100%)] flex-1 text-center sm:min-w-0 sm:pr-0 ${children ? '' : 'pr-3'}`}>
+        <p className="line-clamp-2 break-words text-[18px] font-extrabold leading-tight tracking-tight sm:text-[24px] lg:text-[30px]" style={{ color: titleColor }}>
           {title}
         </p>
         {CLIENT_NAME && <p className="truncate text-[12px] text-slate-500">{CLIENT_NAME}</p>}
       </div>
-      <div className="flex min-w-0 items-center justify-end">
+      <div className="flex shrink-0 items-center justify-end sm:min-w-0">
         {children}
         {CLIENT_LOGO && (
           <div className="flex shrink-0 items-center px-3 sm:px-5">
@@ -74,7 +78,7 @@ function BandHeader({ title, subtitle, breadcrumb, size }) {
   const showTitle = !(theme.moduleName && title === theme.moduleName)
   return (
     <div className="shrink-0">
-      <AppBar title={theme.moduleName || undefined} titleColor={theme.moduleName ? theme.title : undefined} />
+      <AppBar compactLogo title={theme.moduleName || undefined} titleColor={theme.moduleName ? theme.title : undefined} />
       {breadcrumb?.length > 0 && (
         <nav aria-label="Breadcrumb" className="flex items-center gap-1 border-b border-slate-200/80 bg-white/70 px-4 py-1.5 text-[12px] text-slate-700 sm:px-6">
           {breadcrumb.map((crumb, i) => {

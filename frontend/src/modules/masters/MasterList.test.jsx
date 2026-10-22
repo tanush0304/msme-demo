@@ -71,9 +71,12 @@ describe('Masters landing entries', () => {
 describe('Masters header band', () => {
   it('renders the band with logos, title and breadcrumb on the landing page', () => {
     const html = renderToStaticMarkup(createElement(MasterList, { activeTab: null, onSelect: vi.fn() }))
-    // No client logo is configured in the demo, so only Pragati & Unnati shows.
+    // No client logo is configured in the demo, so every image is a Pragati &
+    // Unnati logo (the full one from lg, the compact one below it).
     expect(html).not.toContain('Engineering"')
-    expect(html.match(/<img /g)).toHaveLength(1)
+    const alts = [...html.matchAll(/<img [^>]*alt="([^"]*)"/g)].map((m) => m[1])
+    expect(alts).toHaveLength(2)
+    expect(alts.every((alt) => alt.startsWith('Pragati &amp; Unnati'))).toBe(true)
     expect(html).toContain('alt="Pragati &amp; Unnati"')
     expect(html).toContain('Developed by')
     expect(html).toContain('aria-label="Breadcrumb"')
