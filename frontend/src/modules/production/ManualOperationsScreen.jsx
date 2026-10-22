@@ -26,7 +26,7 @@ import {
   updateProductionLogHours,
 } from '../../data/queries/productionLogs'
 import { getCurrentUserId } from '../../data/queries/currentUser'
-import { releasedPlannedQty, pickOpenLogForScreen } from '../../utils/productionLogLock'
+import { releasedPlannedQty, pickOpenLogForScreen, logMatchesScreen, createRequestGate, OUT_OF_SYNC_MESSAGE } from '../../utils/productionLogLock'
 import {
   computeStageAvailability,
   computeStageUpstreamTargets,
@@ -70,6 +70,12 @@ export default function ManualOperationsScreen({ role }) {
   const [stageTarget, setStageTarget] = useState(null)
   const [stageOutputSoFar, setStageOutputSoFar] = useState(0)
   const [resolving, setResolving] = useState(false)
+  // True while this login's open log is being restored on screen open; with
+  // `loading` it locks Employee / PRD / Stage (no second selection may race
+  // the restore). `gate`: latest selection wins -- an older async load drops
+  // its results instead of overwriting the newer one's state.
+  const [restoring, setRestoring] = useState(false)
+  const [gate] = useState(createRequestGate)
   const [completing, setCompleting] = useState(false)
 
   const [starting, setStarting] = useState(false)
@@ -98,23 +104,33 @@ export default function ManualOperationsScreen({ role }) {
   // load it straight away (PRD / stage then stay locked). Before migration
   // 024 there is no user_id column -- the query fails and the screen simply
   // starts empty, as it did before.
-  async function restoreOpenLog(pending) {
-    let openLogs
+  // isActive(): false once the effect run that started this restore was
+  // discarded (StrictMode runs effects twice in development) -- that run then
+  // leaves `restoring` / `loading` to the live run, so the lock never opens early.
+  async function restoreOpenLog(pending, isActive = () => true) {
+    setRestoring(true)
     try {
-      openLogs = await listOpenLogsForUser(await getCurrentUserId())
-    } catch {
-      return
+      let openLogs
+      try {
+        openLogs = await listOpenLogsForUser(await getCurrentUserId())
+      } catch {
+        return
+      }
+      if (!isActive()) return
+      const match = pickOpenLogForScreen(openLogs, pending)
+      if (!match) return
+      const { log, stage } = match
+      setPrdNo(log.prd_no)
+      setStageChoiceId(String(stage.id))
+      if (log.employee_id) setEmployeeId(log.employee_id)
+      await resolveStage(log.prd_no, stage)
+    } finally {
+      if (isActive()) setRestoring(false)
     }
-    const match = pickOpenLogForScreen(openLogs, pending)
-    if (!match) return
-    const { log, stage } = match
-    setPrdNo(log.prd_no)
-    setStageChoiceId(String(stage.id))
-    if (log.employee_id) setEmployeeId(log.employee_id)
-    await resolveStage(log.prd_no, stage)
   }
 
   useEffect(() => {
+    let active = true
     async function load() {
       setLoading(true)
       setError(null)
@@ -123,14 +139,18 @@ export default function ManualOperationsScreen({ role }) {
         setEmployees(employeeRows)
         setShifts(shf)
         const pending = await loadPendingStages()
-        await restoreOpenLog(pending)
+        if (!active) return
+        await restoreOpenLog(pending, () => active)
       } catch (e) {
-        setError(e.message)
+        if (active) setError(e.message)
       } finally {
-        setLoading(false)
+        if (active) setLoading(false)
       }
     }
     load()
+    return () => {
+      active = false
+    }
   }, [])
 
   // Eligible Manual stages for the currently-selected PRD -- more than one
@@ -140,8 +160,12 @@ export default function ManualOperationsScreen({ role }) {
   // eligible stages on one machine.
   const stageChoicesForPrd = prdNo ? pendingStages.filter((s) => s.prd_no === prdNo) : []
 
+  // Selection is locked while a log is open and while the screen is still
+  // loading / restoring the open log.
+  const selectionLocked = !!activeLog || loading || restoring
+
   function handlePrdChange(e) {
-    if (activeLog) return // locked while a log is open
+    if (selectionLocked) return
     const prd = e.target.value
     setPrdNo(prd)
     setStageChoiceId('')
@@ -150,7 +174,10 @@ export default function ManualOperationsScreen({ role }) {
     setStageTarget(null)
     setStageOutputSoFar(0)
     setActiveLog(null)
-    if (!prd) return
+    if (!prd) {
+      gate.start() // drop any resolve still in flight for the previous PRD
+      return
+    }
     const choices = pendingStages.filter((s) => s.prd_no === prd)
     if (choices.length === 1) {
       resolveStage(prd, choices[0])
@@ -160,7 +187,7 @@ export default function ManualOperationsScreen({ role }) {
   }
 
   function handleStageChoice(e) {
-    if (activeLog) return // locked while a log is open
+    if (selectionLocked) return
     const stageId = e.target.value
     setStageChoiceId(stageId)
     const stage = stageChoicesForPrd.find((s) => String(s.id) === String(stageId))
@@ -168,6 +195,7 @@ export default function ManualOperationsScreen({ role }) {
   }
 
   async function resolveStage(prd, stage) {
+    const token = gate.start()
     setResolvedStage(stage)
     setConfirmEarlier(false)
     setResolving(true)
@@ -180,6 +208,7 @@ export default function ManualOperationsScreen({ role }) {
         getOpenLogForStage(prd, stage.id),
         getWipAggregatesForPrd(prd),
       ])
+      if (!gate.isCurrent(token)) return
       const availability = computeStageAvailability(allStages, order?.prd_qty ?? 0, aggregates, wipAggregates)
       const targets = computeStageUpstreamTargets(allStages, order?.prd_qty ?? 0, aggregates)
       setPrdAllStages(allStages)
@@ -196,14 +225,15 @@ export default function ManualOperationsScreen({ role }) {
         // it (e.g. resuming on a new day/shift), and that's exactly what
         // decides which shift today's new hours get stamped with.
         setShiftCode(openLog.shift_code)
-        const hours = await listLogHoursForLogIds([openLog.id])
+        const [hours, logTotals] = await Promise.all([listLogHoursForLogIds([openLog.id]), getLogTotals(openLog.id)])
+        if (!gate.isCurrent(token)) return
         setLogHours(hours)
-        setTotals(await getLogTotals(openLog.id))
+        setTotals(logTotals)
       }
     } catch (e) {
-      setError(e.message)
+      if (gate.isCurrent(token)) setError(e.message)
     } finally {
-      setResolving(false)
+      if (gate.isCurrent(token)) setResolving(false)
     }
   }
 
@@ -252,6 +282,10 @@ export default function ManualOperationsScreen({ role }) {
   // changed ones) -- updated in place, keeping their original employee.
   async function handleSaveHours(rows, changes = []) {
     if (!activeLog) return
+    if (!logMatchesScreen(activeLog, { prdNo, stageId: resolvedStage?.id })) {
+      setError(OUT_OF_SYNC_MESSAGE)
+      return
+    }
     setSavingHour(true)
     setError(null)
     try {
@@ -275,6 +309,10 @@ export default function ManualOperationsScreen({ role }) {
 
   async function handleAddExtraHour(row) {
     if (!activeLog) return
+    if (!logMatchesScreen(activeLog, { prdNo, stageId: resolvedStage?.id })) {
+      setError(OUT_OF_SYNC_MESSAGE)
+      return
+    }
     setSavingHour(true)
     setError(null)
     try {
@@ -370,13 +408,13 @@ export default function ManualOperationsScreen({ role }) {
 
         <FormSection icon={ClipboardCheck} title="1. Select Employee & Order" subtitle="Pick who, then order" columns={3}>
           <Field label="Employee" required>
-            <EmployeeSelect employees={employees} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} />
+            <EmployeeSelect employees={employees} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} disabled={loading || restoring} />
           </Field>
           <Field label="Production Order (PRD No)" required>
             <SearchableSelect
               value={prdNo}
               onChange={handlePrdChange}
-              disabled={!!activeLog}
+              disabled={selectionLocked}
               options={[...new Set(pendingStages.map((s) => s.prd_no))]}
             />
           </Field>
@@ -394,7 +432,7 @@ export default function ManualOperationsScreen({ role }) {
               <SearchableSelect
                 value={stageChoiceId}
                 onChange={handleStageChoice}
-                disabled={!!activeLog}
+                disabled={selectionLocked}
                 options={stageChoicesForPrd.map((s) => ({ value: s.id, label: stageLabel(s) }))}
               />
             </Field>

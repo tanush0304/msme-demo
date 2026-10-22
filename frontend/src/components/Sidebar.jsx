@@ -59,9 +59,12 @@ export default function Sidebar({ activeKey, activeSubKey, onSelect, onSelectSub
   }
 
   function handleModuleClick(module) {
-    // Clicking the module you're already in just opens/closes its list;
-    // clicking any other module navigates there.
-    if (module.subItems && module.key === activeKey) {
+    // Clicking the module you're already in: from one of its screens it goes
+    // back to the module's landing; on the landing it just opens/closes its
+    // list. Clicking any other module navigates there.
+    if (module.key === activeKey && activeSubKey) {
+      onSelect(module.key)
+    } else if (module.subItems && module.key === activeKey) {
       setExpandedKey((k) => (k === module.key ? null : module.key))
     } else {
       onSelect(module.key)
