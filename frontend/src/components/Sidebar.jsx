@@ -6,6 +6,7 @@ import {
   ClipboardList,
   Database,
   Factory,
+  House,
   LogOut,
   Menu,
   ShieldCheck,
@@ -43,9 +44,11 @@ function contextualExpandedKey(activeKey, activeSubKey) {
   return activeSubKey ? activeKey : null
 }
 
-export default function Sidebar({ activeKey, activeSubKey, onSelect, onSelectSub, userEmail, onSignOut, role }) {
+export default function Sidebar({ activeKey, activeSubKey, onSelect, onSelectSub, onHome, isHome = false, userEmail, onSignOut, role }) {
   const isRestricted = (module) => Boolean(module.roles && !module.roles.includes(role))
-  const [collapsed, setCollapsed] = useState(false)
+  // Starts collapsed on phones (below md, 768px) so the content keeps the width;
+  // desktop starts expanded. Either way the menu button toggles it.
+  const [collapsed, setCollapsed] = useState(() => typeof window !== 'undefined' && Boolean(window.matchMedia?.('(max-width: 767px)').matches))
   const [expandedKey, setExpandedKey] = useState(() => contextualExpandedKey(activeKey, activeSubKey))
   const [lastContext, setLastContext] = useState(`${activeKey}/${activeSubKey}`)
 
@@ -91,6 +94,23 @@ export default function Sidebar({ activeKey, activeSubKey, onSelect, onSelectSub
 
       <nav className={`min-h-0 flex-1 overflow-y-auto py-4 ${collapsed ? 'px-2' : 'px-3'}`} aria-label="Application modules">
         <div className="space-y-1.5">
+          {/* Home (Main Menu): same row as the modules, neutral grey tile; never
+              locked, never expands -- it only returns to the Main Menu. */}
+          <button
+            type="button"
+            onClick={() => onHome?.()}
+            aria-current={isHome ? 'page' : undefined}
+            aria-label="Open Home"
+            title={collapsed ? 'Home' : undefined}
+            style={isHome ? { backgroundColor: '#F1F5F9', boxShadow: 'inset 4px 0 0 #64748B' } : undefined}
+            className={`group flex min-h-[48px] w-full items-center gap-3 rounded-lg py-2 text-left text-slate-800 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400/60 ${collapsed ? 'justify-center px-0' : 'px-3'} ` +
+              (isHome ? 'sidebar-active' : 'hover:bg-slate-100')}
+          >
+            <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-600 ${isHome ? 'bg-white' : 'bg-slate-100'}`}>
+              <House size={19} strokeWidth={2.2} aria-hidden="true" />
+            </span>
+            {!collapsed && <span className={`min-w-0 flex-1 text-[13px] leading-tight ${isHome ? 'font-bold' : 'font-semibold'}`}>Home</span>}
+          </button>
           {NAV_ITEMS.map((module) => {
             const presentation = MODULE_PRESENTATION[module.key] ?? { label: module.label, icon: Database }
             const Icon = presentation.icon

@@ -50,7 +50,7 @@ export default function MainMenu({ role, onNavigate, onSignOut }) {
           Your operations, connected.
         </h1>
         <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-gray-600 sm:text-[17px]">
-          From master data to final despatch.
+          From planning to final despatch.
           <br />
           Your people, production and inventory, in one place.
         </p>

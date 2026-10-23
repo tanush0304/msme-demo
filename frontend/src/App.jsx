@@ -153,6 +153,7 @@ function App() {
         onSelect={handleSelect}
         onSelectSub={handleSelectSub}
         onHome={handleHome}
+        isHome={showMainMenu}
         userEmail={session.user.email}
         onSignOut={() => supabase.auth.signOut()}
         role={role}

@@ -95,6 +95,7 @@ export function MasterCard({ item, onSelect }) {
       icon={item.icon}
       theme={item.theme}
       onClick={() => onSelect(item.key)}
+      compact
     />
   )
 }
@@ -107,12 +108,12 @@ function MastersLanding({ onSelect }) {
         title="Masters"
         size="lg"
       />
-      {/* 4 columns from lg, 2 from sm, 1 on phones. Rows take their content
-          height (min 130px), so descriptions are never clipped; the page
-          scrolls when the 16 cards don't fit. */}
+      {/* Compact cards: 4 columns from 1400px (4x4, one screen at 1440x900),
+          3 from xl, 2 from md, 1 on phones. Rows take their content height,
+          so nothing is clipped; the page scrolls when the cards don't fit. */}
       <main className="flex-1 overflow-y-auto bg-page px-4 py-4 sm:px-6">
         <div className="mx-auto w-full max-w-[1480px]">
-          <div className="grid auto-rows-[minmax(130px,auto)] grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 min-[1400px]:grid-cols-4">
             {MASTER_ENTRIES.map((item) => (
               <MasterCard key={item.key} item={item} onSelect={onSelect} />
             ))}
