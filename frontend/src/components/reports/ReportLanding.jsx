@@ -12,16 +12,16 @@ export function ReportCard({ tile, onSelect }) {
 
 /**
  * Reports & Dashboard landing: the report cards (9 + Customer Complaint),
- * compact cards, 4 per row from 1400px, 3 from xl, 2 from md, 1 on phones.
- * Rows take their content height, so text is never clipped; the page
- * scrolls when the cards don't fit.
+ * compact cards at content height (min 150px from 1400px, no stretch), 4 per
+ * row from 1400px, 3 from xl, 2 from md, 1 on phones. Left edge = breadcrumb.
+ * Text is never clipped; the page scrolls when the cards don't fit.
  */
 export default function ReportLanding({ title, subtitle, tiles, onSelect }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <PageHeader title={title} subtitle={subtitle} size="lg" />
-      <main className="min-h-0 flex-1 overflow-y-auto bg-page p-4 sm:p-5">
-        <div className="mx-auto w-full max-w-[1500px] grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 min-[1400px]:grid-cols-4">
+      <main className="min-h-0 flex-1 overflow-y-auto bg-page px-4 py-4 sm:px-6 sm:py-5">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 min-[1400px]:grid-cols-4 min-[1400px]:auto-rows-[minmax(150px,auto)]">
           {tiles.map((tile) => (
             <ReportCard key={tile.key} tile={tile} onSelect={onSelect} />
           ))}

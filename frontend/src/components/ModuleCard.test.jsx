@@ -10,14 +10,18 @@ const THEME = { accent: '#1E7BF2', tint: '#E8F2FE', strong: '#1559B5', wash: '#E
 const DESC = 'Maintain customer details, addresses, GST and payment terms.'
 
 describe('ModuleCard compact', () => {
-  it('one row: 1-line title, 2-line description with tooltip, aria label', () => {
+  it('2-line title + full-width 2-line description, both with tooltips; aria label', () => {
     const onClick = vi.fn()
     render(<ModuleCard compact title="Customer Master" description={DESC} icon={Database} theme={THEME} onClick={onClick} />)
     const card = screen.getByRole('button', { name: 'Open Customer Master' })
-    expect(card.className).toContain('items-center')
-    expect(screen.getByText('Customer Master').className).toContain('truncate')
+    const titleEl = card.querySelector('[data-card-title]')
+    expect(titleEl.textContent).toBe('Customer Master')
+    expect(titleEl.className).toContain('line-clamp-2')
+    expect(titleEl.getAttribute('title')).toBe('Customer Master')
     const desc = screen.getByText(DESC)
     expect(desc.className).toContain('line-clamp-2')
+    expect(desc.className).toContain('pr-10') // clear of the arrow
+    expect(desc.parentElement).toBe(card) // spans the full card width, not beside the icon
     expect(desc.getAttribute('title')).toBe(DESC)
     fireEvent.click(card)
     expect(onClick).toHaveBeenCalledTimes(1)
@@ -40,5 +44,6 @@ describe('ModuleCard compact', () => {
     const card = screen.getByRole('button')
     expect(card.className).toContain('flex-col')
     expect(screen.getByText('Production').className).toContain('line-clamp-2')
+    expect(card.querySelector('[data-card-title]')).toBeNull()
   })
 })

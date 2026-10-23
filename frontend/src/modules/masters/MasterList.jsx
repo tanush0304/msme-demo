@@ -108,16 +108,16 @@ function MastersLanding({ onSelect }) {
         title="Masters"
         size="lg"
       />
-      {/* Compact cards: 4 columns from 1400px (4x4, one screen at 1440x900),
-          3 from xl, 2 from md, 1 on phones. Rows take their content height,
-          so nothing is clipped; the page scrolls when the cards don't fit. */}
+      {/* Compact cards: 4 columns from 1400px with rows 150-190px (4x4 fits
+          1440x900: the grid takes the scroll area's height so rows shrink to fit,
+          spare height stays below the grid); 3 from xl, 2 from md,
+          1 on phones at content height. Left edge = breadcrumb (px-4 / sm:px-6).
+          Nothing is clipped; the page scrolls when the cards don't fit. */}
       <main className="flex-1 overflow-y-auto bg-page px-4 py-4 sm:px-6">
-        <div className="mx-auto w-full max-w-[1480px]">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 min-[1400px]:grid-cols-4">
-            {MASTER_ENTRIES.map((item) => (
-              <MasterCard key={item.key} item={item} onSelect={onSelect} />
-            ))}
-          </div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 min-[1400px]:grid-cols-4 min-[1400px]:h-full min-[1400px]:auto-rows-[minmax(150px,190px)]">
+          {MASTER_ENTRIES.map((item) => (
+            <MasterCard key={item.key} item={item} onSelect={onSelect} />
+          ))}
         </div>
       </main>
     </div>
