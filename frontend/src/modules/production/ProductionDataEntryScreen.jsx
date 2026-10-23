@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Factory, PlayCircle, Clock3, CheckCircle2, Lock, StopCircle } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import FormSection, { Field, TextInput, SelectInput, AutoFillBox } from '../../components/FormSection'
@@ -113,11 +113,25 @@ export default function ProductionDataEntryScreen({ role }) {
   const [masterCycleTime, setMasterCycleTime] = useState(null) // Cycle Time Master, part + seq (+ machine)
   const [endingLog, setEndingLog] = useState(false)
 
+  // Every stage of every PRD (with route positions) -- busy-machine labels
+  // show the open log's stage POSITION, whatever its status.
+  const allStagesRef = useRef([])
+
   async function loadPendingStages() {
     const allStages = await listAllStages()
+    allStagesRef.current = allStages
     const pending = allStages.filter((s) => s.type === 'Internal' && s.status === 'Pending')
     setPendingStages(pending)
     return pending
+  }
+
+  // Stages to number the busy labels with: the known ones, plus -- once per PRD,
+  // only when an open log's stage is missing -- that PRD's stages.
+  async function stagesForOpenLogs(openLogs, known) {
+    const have = new Set(known.map((s) => s.id))
+    const missing = [...new Set(openLogs.filter((l) => !have.has(l.stage_id)).map((l) => l.prd_no))]
+    if (!missing.length) return known
+    return [...known, ...(await Promise.all(missing.map((prd) => getStagesForPrd(prd)))).flat()]
   }
 
   // Reopening the screen: if this login has an open log on an Internal stage,
@@ -231,7 +245,7 @@ export default function ProductionDataEntryScreen({ role }) {
         machineRows.length ? machineRows : listMachines(),
       ])
       if (!gate.isCurrent(token)) return false
-      const busyLogs = openLogsWithSeq(openLogs, pending)
+      const busyLogs = openLogsWithSeq(openLogs, await stagesForOpenLogs(openLogs, allStagesRef.current.length ? allStagesRef.current : pending))
       const bySeq = {}
       for (const st of stages.filter((x) => seqs.includes(x.seq))) {
         bySeq[st.seq] = machinesForStage({ mode: MACHINE_CHOICE_MODE, stage: st, machineOps, machines: machs, cycleTimeRows: cycleRows, openLogs: busyLogs })

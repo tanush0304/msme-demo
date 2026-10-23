@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { stageMachineDisplay, openLogsWithSeq } from './machineEligibility'
+import { stageMachineDisplay, openLogsWithSeq, machinesForStage } from './machineEligibility'
 import { buildJobRouteCardRows, jobRouteCardPrintHtml, routeCardCell } from './jobRouteCard'
 import { buildShiftRows } from './shiftVerification'
 
@@ -14,8 +14,16 @@ describe('stageMachineDisplay (Order Traceability Machine column)', () => {
     expect(stageMachineDisplay({ plannedId: 'MC-004', logs: [{ machine_id: 'MC-005' }] })).toBe('MC-005 (planned MC-004)')
     expect(stageMachineDisplay({ plannedId: 'MC-004', logs: [{ machine_id: 'MC-005' }, { machine_id: 'MC-004' }] })).toBe('MC-004, MC-005 (planned MC-004)')
   })
-  it('open logs get their stage seq for busy labels', () => {
-    expect(openLogsWithSeq([{ machine_id: 'MC-005', stage_id: 7, prd_no: 'PRD-006' }], [{ id: 7, seq: 50 }])).toEqual([{ machine_id: 'MC-005', stage_id: 7, prd_no: 'PRD-006', stage_seq: 50 }])
+  it('open logs get their stage POSITION for busy labels (never the raw seq)', () => {
+    expect(openLogsWithSeq([{ machine_id: 'MC-005', stage_id: 7, prd_no: 'PRD-006' }], [{ id: 7, prd_no: 'PRD-006', seq: 50 }])).toEqual([{ machine_id: 'MC-005', stage_id: 7, prd_no: 'PRD-006', stage_seq: 1 }])
+  })
+  it('busy label: "PRD-006 Stage 2" for an open log on seq 20 (stages without position)', () => {
+    const stages = [{ id: 11, prd_no: 'PRD-006', seq: 10 }, { id: 12, prd_no: 'PRD-006', seq: 20 }, { id: 13, prd_no: 'PRD-006', seq: 30 }, { id: 21, prd_no: 'PRD-007', seq: 20 }]
+    const busy = openLogsWithSeq([{ machine_id: 'MC-04', stage_id: 12, prd_no: 'PRD-006' }, { machine_id: 'MC-09', stage_id: 99, prd_no: 'PRD-008' }], stages)
+    expect(busy.map((l) => l.stage_seq)).toEqual([2, null])
+    const [opt] = machinesForStage({ stage: { seq: 20, operation: 'Facing', machine_id: 'MC-04' }, machines: [{ machine_id: 'MC-04', machine_name: 'CNC Lathe TL-250' }], openLogs: busy })
+    expect(opt.label).toContain('busy: PRD-006 Stage 2')
+    expect(opt.label).not.toContain('Stage 20')
   })
 })
 

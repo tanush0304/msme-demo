@@ -1,4 +1,5 @@
 import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
+import { withRoutePositions } from '../../utils/stageLabel'
 import { useEffect, useState } from 'react'
 import { Route } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
@@ -32,7 +33,7 @@ const EMPTY_FORM = {
 
 const LIST_COLUMNS = [
   { key: 'part_serial_number', label: 'Part Serial Number' },
-  { key: 'seq', label: 'Seq' },
+  { key: 'stage_no', label: 'Stage' }, // position in the part's route (withRoutePositions), not the raw seq
   { key: 'operation', label: 'Operation' },
   { key: 'type', label: 'Type' },
   { key: 'machine_id', label: 'Machine ID' },
@@ -118,7 +119,7 @@ export default function CycleTimeMaster() {
 
   async function handleSave() {
     if (!form.part_serial_number || !form.operation || !form.seq || !form.type) {
-      setSaveError('Product, Operation, Seq and Type are required.')
+      setSaveError('Product, Operation, Stage and Type are required.')
       return
     }
     if (form.type === 'Internal' && !form.machine_id) {
@@ -179,7 +180,7 @@ export default function CycleTimeMaster() {
     exportToPdf(LIST_COLUMNS, filteredRecords, 'Cycle Time Master', 'cycle_time_master')
   }
 
-  const filteredRecords = records.filter((r) => {
+  const filteredRecords = withRoutePositions(records).filter((r) => {
     if (!listSearch) return true
     const q = listSearch.toLowerCase()
     return (
@@ -230,8 +231,9 @@ export default function CycleTimeMaster() {
           <Field label="Part Drawing Number">
             <AutoFillBox value={selectedProduct?.part_drawing_reference_number} />
           </Field>
-          <Field label="Sequence" required>
+          <Field label="Stage" required>
             <TextInput type="number" value={form.seq} onChange={handleField('seq')} disabled={readOnly} />
+            <span className="text-[11px] text-slate-500">Order of this operation in the route (1, 2, 3 ...)</span>
           </Field>
           <Field label="Operation" required>
             <TextInput value={form.operation} onChange={handleField('operation')} disabled={readOnly} />

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { stageNumber, withStagePositions, stageLabel, stageDisplayNumber, positionBySeq } from './stageLabel'
+import { stageNumber, withStagePositions, stageLabel, stageDisplayNumber, positionBySeq, withRoutePositions } from './stageLabel'
 import { noAvailableMessage } from './stageStartGuard'
 import { filterOptions } from './searchableSelect'
 import { openLogsWithSeq } from './machineEligibility'
@@ -59,10 +59,25 @@ describe('positionBySeq (Masters > Route Card template)', () => {
     expect([m.get(10), m.get(20), m.get(35)]).toEqual([1, 2, 3])
     expect(positionBySeq([]).size).toBe(0)
   })
-  it('the screen shows Stage and Seq columns', async () => {
+  it('the screen shows only the Stage (position) column, no Seq', async () => {
     const { readFileSync } = await import('node:fs')
     const src = readFileSync(new URL('../modules/customerOrder/RouteCardScreen.jsx', import.meta.url), 'utf8')
-    expect(src).toMatch(/>Stage<\/th>\s*<th[^>]*>Seq<\/th>/)
+    expect(src).toMatch(/>Stage<\/th>/)
+    expect(src).not.toMatch(/>Seq<\/th>/)
     expect(src).toContain('stage_no: stageNo.get(Number(r.seq))')
+  })
+})
+
+describe('withRoutePositions (Cycle Time Master "Stage" column)', () => {
+  it('stage = position in the part route; rows sharing a seq share a stage; parts numbered separately', () => {
+    const rows = [
+      { id: 1, part_serial_number: 'PART-101', seq: 10 }, { id: 2, part_serial_number: 'PART-101', seq: 10 },
+      { id: 3, part_serial_number: 'PART-101', seq: 20 }, { id: 4, part_serial_number: 'PART-101', seq: 20 },
+      { id: 5, part_serial_number: 'PART-101', seq: 30 }, { id: 6, part_serial_number: 'PART-101', seq: 40 },
+      { id: 7, part_serial_number: 'PART-109', seq: 3 }, { id: 8, part_serial_number: 'PART-109', seq: 1 },
+    ]
+    const out = withRoutePositions(rows)
+    expect(out.map((r) => r.stage_no)).toEqual([1, 1, 2, 2, 3, 4, 2, 1])
+    expect(out.map((r) => r.seq)).toEqual(rows.map((r) => r.seq)) // stored seq unchanged
   })
 })

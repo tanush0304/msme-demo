@@ -1,3 +1,4 @@
+import { stageNumber } from './stageLabel'
 // Pure "can this machine run this stage" logic. Eligibility comes from
 // Cycle Time Master rows (part_serial_number + seq + machine_id) -- the route
 // itself says which machines can run which stage -- never from text-
@@ -54,6 +55,7 @@ const nameOf = (machines, id) => {
  *   machines        "machines master" rows { machine_id, machine_name, category }
  *   cycleTimeRows   Cycle Time Master rows of the part { machine_id, seq } (today's rule)
  *   openLogs        open logs { machine_id, prd_no, stage_seq } -> "— busy: PRD-xxx Stage n"
+ *                   (stage_seq = the stage POSITION, from openLogsWithSeq)
  * Returns [{ machine_id, label, planned, busy, source }].
  */
 export function machinesForStage({ mode = 'capable', stage, plannedMachine, machineOps = [], machines = [], cycleTimeRows = [], openLogs = [] }) {
@@ -154,11 +156,15 @@ export function stageMachineDisplay({ plannedId, logs = [] }) {
   return plannedId ? `${actual.join(', ')} (planned ${plannedId})` : actual.join(', ')
 }
 
-/** Open logs with their stage seq, for machinesForStage's busy labels. */
+/** Open logs with their stage POSITION (1, 2, 3 … in the PRD's route) as
+ * `stage_seq`, for machinesForStage's busy labels. `stages` should hold every
+ * stage of the logs' PRDs; a stage without `position` gets it from its PRD's
+ * stages (stageNumber). Never the raw seq -- an unknown stage gives null. */
 export function openLogsWithSeq(openLogs = [], stages = []) {
-  // stage_seq here is the DISPLAY number (route position when known).
   return openLogs.map((l) => {
     const st = stages.find((s) => s.id === l.stage_id)
-    return { ...l, stage_seq: st ? st.position ?? st.seq : null }
+    if (!st) return { ...l, stage_seq: null }
+    const prdStages = stages.filter((s) => s.prd_no === st.prd_no)
+    return { ...l, stage_seq: st.position ?? stageNumber(st, prdStages) }
   })
 }

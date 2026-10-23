@@ -1,7 +1,7 @@
 // Stage numbering for display: a stage is shown by its POSITION in its PRD's
 // route (1, 2, 3 … in seq order), not by the stored seq (10, 20 …). The
-// stored seq is unchanged; masters that EDIT the sequence (Cycle Time
-// Master) keep showing the real seq.
+// stored seq is unchanged; Cycle Time Master's form still edits it (labelled
+// "Stage"), while its list shows the position.
 
 const bySeq = (a, b) => Number(a.seq) - Number(b.seq) || Number(a.id ?? 0) - Number(b.id ?? 0)
 
@@ -40,4 +40,13 @@ export function stageLabel(stage) {
 export function positionBySeq(rows = []) {
   const seqs = [...new Set(rows.map((r) => Number(r.seq)))].sort((a, b) => a - b)
   return new Map(seqs.map((s, i) => [s, i + 1]))
+}
+
+/** Cycle Time Master rows with `stage_no` = their stage position within their
+ * part's route (positionBySeq per part; rows sharing a seq share a stage). */
+export function withRoutePositions(rows = []) {
+  const byPart = new Map()
+  for (const r of rows) byPart.set(r.part_serial_number, [...(byPart.get(r.part_serial_number) ?? []), r])
+  const posByPart = new Map([...byPart].map(([part, list]) => [part, positionBySeq(list)]))
+  return rows.map((r) => ({ ...r, stage_no: posByPart.get(r.part_serial_number).get(Number(r.seq)) }))
 }
