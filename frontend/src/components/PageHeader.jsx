@@ -14,21 +14,20 @@ export function PageHeaderBandProvider({ breadcrumb, children }) {
   return <PageHeaderBandContext.Provider value={{ breadcrumb }}>{children}</PageHeaderBandContext.Provider>
 }
 
-// "Developed by" + Pragati & Unnati logo, the header's left block. Shared
-// with Main Menu so both sit at the same size and position, flush with the
-// content's left padding; `className` sets visibility (PageHeader hides it
-// below lg).
-export function DevelopedByLogo({ className = 'flex' }) {
+// Pragati & Unnati logo, the header's left block. Shared with Main Menu so
+// both sit at the same size and position, its left edge flush with the
+// breadcrumb / content inset (16px, 24px from sm); `className` sets
+// visibility (AppBar hides it below lg).
+function HeaderLogo({ className = 'flex' }) {
   return (
-    <div className={`z-10 shrink-0 items-center gap-3 pl-4 pr-5 sm:pl-6 ${className}`}>
-      <span className="text-[12px] text-slate-600">Developed by</span>
+    <div className={`z-10 shrink-0 items-center pl-4 pr-5 sm:pl-6 ${className}`}>
       <img src={pragatiUnnatiLogo} alt="Pragati & Unnati" className="h-[70px] w-auto object-contain" />
     </div>
   )
 }
 
 // White app bar shared by every screen and Home. From sm it's a 3-column grid
-// so the title sits truly centred: "Developed by" Pragati & Unnati left,
+// so the title sits truly centred: the Pragati & Unnati logo left,
 // title (+ CLIENT_NAME when set) centre, `children` + optional client logo
 // right. Below sm it's a plain row -- compact logo (96px) then the title
 // filling the rest; the title wraps to at most 2 lines (then ellipsis) and
@@ -44,7 +43,7 @@ export function AppBar({ children, compactLogo = false, title = 'Data Management
         {compactLogo && (
           <img src={pragatiUnnatiLogo} alt="Pragati & Unnati — Together Towards a Better Tomorrow" className="ml-4 w-[96px] min-w-0 max-w-[calc(100%-1rem)] object-contain sm:w-[150px] lg:hidden" />
         )}
-        <DevelopedByLogo className="hidden lg:flex" />
+        <HeaderLogo className="hidden lg:flex" />
       </div>
       <div className={`min-w-[min(6rem,100%)] flex-1 text-center sm:min-w-0 sm:pr-0 ${children ? '' : 'pr-3'}`}>
         <p className="line-clamp-2 break-words text-[18px] font-extrabold leading-tight tracking-tight sm:text-[24px] lg:text-[30px]" style={{ color: titleColor }}>

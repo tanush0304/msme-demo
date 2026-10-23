@@ -78,7 +78,7 @@ describe('Masters header band', () => {
     expect(alts).toHaveLength(2)
     expect(alts.every((alt) => alt.startsWith('Pragati &amp; Unnati'))).toBe(true)
     expect(html).toContain('alt="Pragati &amp; Unnati"')
-    expect(html).toContain('Developed by')
+    expect(html).not.toContain('Developed by')
     expect(html).toContain('aria-label="Breadcrumb"')
     expect(html).toContain('aria-current="page">Masters</span>')
     expect(html).not.toContain('ERP System')

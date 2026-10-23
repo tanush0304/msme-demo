@@ -41,7 +41,7 @@ describe('module landing tiles', () => {
     })
   })
 
-  it('Stores has 6 tiles (Raw Material Requisition is sidebar only); RM and FG tiles open the combined screen on the right tab', () => {
+  it('Stores has 6 tiles (Raw Material Requisition hidden in the demo); RM and FG tiles open the combined screen on the right tab', () => {
     const tiles = landingTiles('stores')
     expect(tiles.map((t) => t.label)).toEqual(STORES_LANDING_TILES.map((t) => t.label))
     expect(tiles).toHaveLength(6)
@@ -112,6 +112,15 @@ describe('module components', () => {
     const fg = StoresModule({ activeTab: 'fg', activeMode: null })
     expect(fg.type).toBe(FinishedGoodsStoreScreen)
     expect(fg.props.initialMode).toBeUndefined() // screen keeps its own default tab
+  })
+
+  it('Raw Material Requisition is hidden in the demo: no sidebar entry, its key shows the landing', () => {
+    const stores = NAV_ITEMS.find((m) => m.key === 'stores')
+    expect(stores.subItems.map((s) => s.key)).toEqual(['rm', 'fg', 'wip-receipt', 'wip-issue'])
+    expect(stores.subItems.some((s) => /requisition/i.test(s.label))).toBe(false)
+    const html = renderToStaticMarkup(createElement(StoresModule, { activeTab: 'rm-requisition', onSelect: vi.fn() }))
+    expect(html).not.toContain('Raw Material Requisition')
+    expect(html.match(/aria-label="Open /g)).toHaveLength(landingTiles('stores').length)
   })
 })
 

@@ -2,7 +2,6 @@ import RawMaterialStoreScreen from './RawMaterialStoreScreen'
 import FinishedGoodsStoreScreen from './FinishedGoodsStoreScreen'
 import WipReceiptScreen from './WipReceiptScreen'
 import WipIssueScreen from './WipIssueScreen'
-import RawMaterialRequisitionScreen from './RawMaterialRequisitionScreen'
 import ModuleLanding from '../../components/ModuleLanding'
 import { landingTiles } from '../moduleLandings'
 import { moduleLabel } from '../../utils/constants'
@@ -12,7 +11,6 @@ const TABS = [
   { key: 'fg', component: FinishedGoodsStoreScreen },
   { key: 'wip-receipt', component: WipReceiptScreen },
   { key: 'wip-issue', component: WipIssueScreen },
-  { key: 'rm-requisition', component: RawMaterialRequisitionScreen },
 ]
 
 // Sub-tab selection now lives in the Sidebar's accordion (see NAV_ITEMS'
@@ -22,8 +20,11 @@ const TABS = [
 // `activeMode` (from a landing tile) pre-selects the Issue/Receipt or
 // Dispatch/Receipt tab of the combined RM / FG screens; keyed so picking a
 // different tile for the same screen remounts it on that tab.
+// Raw Material Requisition is hidden in the demo: no tab here, and an unknown
+// key (e.g. 'rm-requisition') shows the landing instead of opening a screen.
 export default function StoresModule({ activeTab, activeMode, role, onSelect }) {
-  if (!activeTab) {
+  const tab = TABS.find((t) => t.key === activeTab)
+  if (!tab) {
     return (
       <ModuleLanding
         title={moduleLabel('stores')}
@@ -32,7 +33,6 @@ export default function StoresModule({ activeTab, activeMode, role, onSelect }) 
       />
     )
   }
-  const tab = TABS.find((t) => t.key === activeTab) ?? TABS[0]
   const Screen = tab.component
   return <Screen key={`${tab.key}/${activeMode ?? ''}`} initialMode={activeMode || undefined} role={role} />
 }

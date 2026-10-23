@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import ActionToolbar from './ActionToolbar'
 import FormSection, { TextInput, SelectInput, AutoFillBox } from './FormSection'
 import RecordsList, { sortRows } from './RecordsList'
-import PageHeader, { PageHeaderBandProvider } from './PageHeader'
+import PageHeader, { AppBar, PageHeaderBandProvider } from './PageHeader'
 
 const render = (el) => renderToStaticMarkup(el)
 
@@ -128,5 +128,15 @@ describe('Input colour coding', () => {
     const second = render(createElement(FormSection, { title: '2. More' }, 'x'))
     ;['Dropdown', 'Manual entry', 'Auto-filled'].forEach((t) => expect(first).toContain(t))
     expect(second).not.toContain('Manual entry')
+  })
+})
+
+describe('AppBar logo', () => {
+  it('shows the Pragati & Unnati logo first in the header, without "Developed by"', () => {
+    const html = renderToStaticMarkup(createElement(AppBar, { title: 'Masters' }))
+    expect(html).not.toContain('Developed by')
+    const firstImg = html.match(/<img [^>]*>/)[0]
+    expect(firstImg).toContain('alt="Pragati &amp; Unnati"')
+    expect(html.indexOf(firstImg)).toBeLessThan(html.indexOf('Masters'))
   })
 })

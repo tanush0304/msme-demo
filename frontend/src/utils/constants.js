@@ -82,7 +82,6 @@ export const NAV_ITEMS = [
       { key: 'fg', label: 'Finished Goods Stores' },
       { key: 'wip-receipt', label: 'WIP Receipt' },
       { key: 'wip-issue', label: 'WIP Issue' },
-      { key: 'rm-requisition', label: 'Raw Material Requisition' },
     ],
   },
   {
@@ -126,7 +125,8 @@ export function subItemLabel(topKey, subKey) {
 // Stores landing: RM and FG each have one combined screen with Issue/Receipt
 // (Dispatch/Receipt) tabs, so they get two tiles each that open that screen
 // with the matching tab pre-selected (`mode` = the screen's own tab key).
-// Raw Material Requisition has no tile -- sidebar only.
+// Raw Material Requisition is hidden in the demo (no tile, no sidebar entry,
+// no route); its screen file and table are kept.
 export const STORES_LANDING_TILES = [
   { key: 'rm-receipt', label: 'Raw Material Receipt', subKey: 'rm', mode: 'receipt' },
   { key: 'rm-issue', label: 'Raw Material Issue', subKey: 'rm', mode: 'issue' },
