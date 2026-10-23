@@ -26,34 +26,34 @@ export default function ModuleCard({ title, description, icon: Icon, theme, onCl
           borderTopColor: theme.accent,
           backgroundImage: `radial-gradient(120% 120% at 100% 100%, ${theme.wash}, transparent 60%)`,
         }}
-        className="group relative flex h-full w-full min-w-0 flex-col justify-start gap-3 rounded-2xl border border-t-4 border-slate-200 bg-white p-4 text-left shadow-[0_2px_10px_rgba(15,42,82,0.08)] transition duration-150 enabled:hover:-translate-y-1 enabled:hover:shadow-[0_14px_28px_rgba(15,42,82,0.16)] focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/60 disabled:cursor-not-allowed disabled:opacity-60 sm:p-5"
+        className="group relative flex h-full w-full min-w-0 flex-col justify-start gap-3 rounded-2xl border border-t-4 border-slate-200 bg-white p-4 text-left [@media(min-width:1360px)_and_(max-height:800px)]:gap-2 shadow-[0_2px_10px_rgba(15,42,82,0.08)] transition duration-150 enabled:hover:-translate-y-1 enabled:hover:shadow-[0_14px_28px_rgba(15,42,82,0.16)] focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/60 disabled:cursor-not-allowed disabled:opacity-60 sm:p-5 [@media(min-width:1360px)_and_(max-height:800px)]:p-3 [@media(min-width:1360px)_and_(max-height:800px)]:pb-4"
       >
         <span className="flex min-w-0 items-center gap-3">
           {Icon && (
             <span
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl [@media(min-width:1360px)_and_(max-height:800px)]:h-9 [@media(min-width:1360px)_and_(max-height:800px)]:w-9 [@media(min-width:1360px)_and_(max-height:800px)]:rounded-lg"
               style={{ backgroundColor: theme.tint, color: theme.strong }}
               aria-hidden="true"
             >
-              <Icon size={22} strokeWidth={2} />
+              <Icon size={22} strokeWidth={2} className="[@media(min-width:1360px)_and_(max-height:800px)]:h-[18px] [@media(min-width:1360px)_and_(max-height:800px)]:w-[18px]" />
             </span>
           )}
-          <span data-card-title title={title} className="min-w-0 line-clamp-2 text-[16px] font-semibold leading-snug text-[#0F172A]">
+          <span data-card-title title={title} className="min-w-0 line-clamp-2 text-[16px] font-semibold leading-snug text-[#0F172A] [@media(min-width:1360px)_and_(max-height:800px)]:text-[15px]">
             {title}
           </span>
         </span>
         {/* Full card width (under the icon too); pr-10 keeps it clear of the arrow. */}
         {description && (
-          <span data-card-desc title={description} className="line-clamp-2 pr-10 text-[14px] leading-snug text-gray-600">
+          <span data-card-desc title={description} className="line-clamp-2 pr-10 text-[14px] leading-snug text-gray-600 [@media(min-width:1360px)_and_(max-height:800px)]:pr-8 [@media(min-width:1360px)_and_(max-height:800px)]:text-[13px]">
             {description}
           </span>
         )}
         <span
-          className="absolute bottom-4 right-4 flex h-[30px] w-[30px] items-center justify-center rounded-full text-white shadow-sm transition group-enabled:group-hover:translate-x-0.5"
+          className="absolute bottom-4 right-4 flex h-[30px] w-[30px] [@media(min-width:1360px)_and_(max-height:800px)]:bottom-3 [@media(min-width:1360px)_and_(max-height:800px)]:right-3 [@media(min-width:1360px)_and_(max-height:800px)]:h-[26px] [@media(min-width:1360px)_and_(max-height:800px)]:w-[26px] items-center justify-center rounded-full text-white shadow-sm transition group-enabled:group-hover:translate-x-0.5"
           style={{ backgroundColor: theme.accent }}
           aria-hidden="true"
         >
-          <ArrowRight size={16} strokeWidth={2.6} />
+          <ArrowRight size={16} strokeWidth={2.6} className="[@media(min-width:1360px)_and_(max-height:800px)]:h-[14px] [@media(min-width:1360px)_and_(max-height:800px)]:w-[14px]" />
         </span>
       </button>
     )
