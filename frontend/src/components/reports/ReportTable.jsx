@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { List, Search, FileSpreadsheet, ChevronDown } from 'lucide-react'
 import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
 import { searchRows } from '../../utils/reportAggregates'
@@ -34,6 +34,9 @@ function BarCell({ value, color, text }) {
 export default function ReportTable({ title, columns, rows, totalsRow, groupHeaders, showSerial = true, loading, error, rowKey, searchKeys = [], searchPlaceholder, exportTitle, exportName }) {
   const [search, setSearch] = useState('')
   const [printOpen, setPrintOpen] = useState(false)
+  // Wraps the Export button AND its menu, so clicks inside the menu are not "outside".
+  const printRef = useRef(null)
+  const printBtnRef = useRef(null)
   const filtered = useMemo(() => searchRows(rows, search, searchKeys), [rows, search, searchKeys])
 
   const show = (col, row) => {
@@ -61,6 +64,33 @@ export default function ReportTable({ title, columns, rows, totalsRow, groupHead
     .filter((c) => !c.noExport)
   const exportCols = showSerial ? [{ key: 'sno', label: 'S.No' }, ...dataCols] : dataCols
 
+  // Close on a mousedown outside the button+menu, or on Escape (focus back to the button).
+  // (Was onMouseLeave, which fired in the gap between button and menu and closed it
+  // before Excel / PDF could be clicked.)
+  useEffect(() => {
+    if (!printOpen) return undefined
+    const onDown = (e) => {
+      if (printRef.current && !printRef.current.contains(e.target)) setPrintOpen(false)
+    }
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        setPrintOpen(false)
+        printBtnRef.current?.focus()
+      }
+    }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [printOpen])
+
+  function runExport(action) {
+    action()
+    setPrintOpen(false)
+  }
+
   const alignClass = (col) => (col.align === 'right' ? 'text-right' : 'text-left')
 
   return (
@@ -84,9 +114,12 @@ export default function ReportTable({ title, columns, rows, totalsRow, groupHead
             className="h-9 w-full rounded-lg border border-[#CBDAEE] bg-white pl-9 pr-3 text-[13px] text-slate-800 placeholder:text-slate-400 focus:border-[#1669E0] focus:outline-none focus:ring-2 focus:ring-[#1669E0]/20"
           />
         </div>
-        <div className="relative" onMouseLeave={() => setPrintOpen(false)}>
+        <div className="relative" ref={printRef}>
           <button
+            ref={printBtnRef}
             type="button"
+            aria-haspopup="menu"
+            aria-expanded={printOpen}
             onClick={() => setPrintOpen((v) => !v)}
             disabled={loading || filtered.length === 0}
             className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#15803D] px-4 text-[14px] font-semibold text-white shadow-sm hover:bg-[#166534] disabled:opacity-50"
@@ -94,11 +127,11 @@ export default function ReportTable({ title, columns, rows, totalsRow, groupHead
             <FileSpreadsheet size={18} /> Export <ChevronDown size={15} />
           </button>
           {printOpen && (
-            <div className="absolute right-0 z-20 mt-1 w-32 overflow-hidden rounded-lg border border-[#CFE2F8] bg-white shadow-lg">
-              <button type="button" className="block w-full px-3 py-2 text-left text-[13px] hover:bg-[#E3F0FD]" onClick={() => { setPrintOpen(false); exportToCsv(exportCols, exportRows(), `${exportName}.csv`) }}>
+            <div role="menu" className="absolute right-0 z-20 mt-1 w-32 overflow-hidden rounded-lg border border-[#CFE2F8] bg-white shadow-lg">
+              <button type="button" role="menuitem" className="block w-full px-3 py-2 text-left text-[13px] hover:bg-[#E3F0FD]" onClick={() => runExport(() => exportToCsv(exportCols, exportRows(), `${exportName}.csv`))}>
                 Excel
               </button>
-              <button type="button" className="block w-full px-3 py-2 text-left text-[13px] hover:bg-[#E3F0FD]" onClick={() => { setPrintOpen(false); exportToPdf(exportCols, exportRows(), exportTitle, exportName) }}>
+              <button type="button" role="menuitem" className="block w-full px-3 py-2 text-left text-[13px] hover:bg-[#E3F0FD]" onClick={() => runExport(() => exportToPdf(exportCols, exportRows(), exportTitle, exportName))}>
                 PDF
               </button>
             </div>

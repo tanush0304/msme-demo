@@ -413,7 +413,8 @@ export const COMPLAINT = {
 // ---- derived checks (used by --dry-run and before Phase 3/4 writes) ---------
 
 /** Every chronology rule from the brief, as [label, earlierW, laterW] pairs (bigger w = earlier). */
-export function chronologyChecks() {
+export function chronologyChecks(X = { GRNS, PRODUCTION_STEPS, RM_ISSUE_W, DISPATCHES, WIP_MOVES, FG_MOVES, QUALITY_LOGS, COMPLAINT, ENQUIRIES, PURCHASE_ORDERS }) {
+  const { GRNS, PRODUCTION_STEPS, RM_ISSUE_W, DISPATCHES, WIP_MOVES, FG_MOVES, QUALITY_LOGS, COMPLAINT, ENQUIRIES, PURCHASE_ORDERS } = X
   const checks = []
   const grnMax = Math.min(...GRNS.map((g) => g.w)) // latest GRN
   const firstLog = (prd) => Math.max(...PRODUCTION_STEPS.filter((s) => s.prd === prd).flatMap((s) => s.days.map((d) => d.w)))
@@ -434,11 +435,22 @@ export function chronologyChecks() {
   for (const m of WIP_MOVES) checks.push([`WIP ${m.type} PRD ${m.prd} after its stage-${m.fromSeq} logs`, lastLogOfStage(m.prd, m.fromSeq), m.w])
   const wipReceipt = WIP_MOVES.find((m) => m.type === 'Receipt')
   const wipIssue = WIP_MOVES.find((m) => m.type === 'Issue')
-  checks.push(['WIP receipt < WIP issue', wipReceipt.w, wipIssue.w])
-  const fgReceipt = FG_MOVES.find((m) => m.type === 'Production Receipt')
-  const lastSeqA = Math.max(...PRODUCTION_STEPS.filter((s) => s.prd === fgReceipt.prd).map((s) => s.seq))
-  checks.push([`PRD ${fgReceipt.prd} last stage < FG receipt`, lastLogOfStage(fgReceipt.prd, lastSeqA), fgReceipt.w])
-  for (const m of FG_MOVES.filter((x) => x.type === 'Dispatch')) checks.push(['FG receipt < FG despatch', fgReceipt.w, m.w])
+  if (wipReceipt && wipIssue) checks.push(['WIP receipt < WIP issue', wipReceipt.w, wipIssue.w])
+  for (const fgReceipt of FG_MOVES.filter((m) => m.type === 'Production Receipt')) {
+    const lastSeq = Math.max(...PRODUCTION_STEPS.filter((s) => s.prd === fgReceipt.prd).map((s) => s.seq))
+    checks.push([`PRD ${fgReceipt.prd} last stage < FG receipt`, lastLogOfStage(fgReceipt.prd, lastSeq), fgReceipt.w])
+    // an outsourced stage before the last one: its receipts come first too
+    for (const d of DISPATCHES.filter((x) => x.prd === fgReceipt.prd)) for (const r of d.receipts ?? []) checks.push([`${d.key} receipt < FG receipt ${fgReceipt.prd}`, r.w, fgReceipt.w])
+  }
+  for (const m of FG_MOVES.filter((x) => x.type === 'Dispatch')) {
+    const receipt = FG_MOVES.find((x) => x.type === 'Production Receipt' && x.prd === m.prd)
+    checks.push([`FG receipt < FG despatch (PRD ${m.prd})`, receipt ? receipt.w : -1, m.w])
+  }
+  // stages after an outsourced one start only after its first receipt
+  for (const d of DISPATCHES) {
+    const first = Math.max(-1, ...(d.receipts ?? []).map((r) => r.w))
+    for (const s of PRODUCTION_STEPS.filter((x) => x.prd === d.prd && x.seq > d.seq)) checks.push([`${d.key} receipt < PRD ${s.prd} stage ${s.seq} logs`, first, Math.max(...s.days.map((x) => x.w))])
+  }
   const lastDespatch = Math.min(...FG_MOVES.filter((x) => x.type === 'Dispatch').map((m) => m.w))
   const lastTxn = Math.min(lastDespatch, ...DISPATCHES.flatMap((d) => [d.w, ...(d.receipts ?? []).map((r) => r.w)]), ...WIP_MOVES.map((m) => m.w))
   for (const q of QUALITY_LOGS) checks.push([`last stock/jobwork movement < quality ${q.key}`, lastTxn, q.w])

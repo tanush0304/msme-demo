@@ -42,14 +42,25 @@ export default function ActionToolbar({
 }) {
   const [printOpen, setPrintOpen] = useState(false)
   const printRef = useRef(null)
+  const printBtnRef = useRef(null)
 
   useEffect(() => {
     if (!printOpen) return undefined
     const close = (e) => {
       if (printRef.current && !printRef.current.contains(e.target)) setPrintOpen(false)
     }
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        setPrintOpen(false)
+        printBtnRef.current?.focus()
+      }
+    }
     document.addEventListener('mousedown', close)
-    return () => document.removeEventListener('mousedown', close)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', close)
+      document.removeEventListener('keydown', onKey)
+    }
   }, [printOpen])
 
   return (
@@ -96,6 +107,7 @@ export default function ActionToolbar({
         </span>
         <div className="relative" ref={printRef}>
           <button
+            ref={printBtnRef}
             type="button"
             className={BTN_LIGHT}
             aria-haspopup="menu"
