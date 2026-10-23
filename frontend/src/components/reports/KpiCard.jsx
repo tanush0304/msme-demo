@@ -1,3 +1,5 @@
+import { compactKpiValue } from '../../utils/compactIndian'
+
 // Pastel card + solid icon circle per tone (mockup palette: blue, green,
 // peach, lavender, pink, mint).
 const TONES = {
@@ -16,14 +18,14 @@ export function formatQty(n) {
 /** "▲ 12%" / "▼ 3.2 pts" line under a KPI. good = whether a rise is good
  * (production) or bad (rejects): colours green/red accordingly. */
 function Delta({ delta }) {
-  if (!delta || delta.value == null) return <div className="text-right text-[12px] leading-tight text-slate-400"><span className="block text-[17px] font-bold">—</span>{delta?.caption}</div>
+  if (!delta || delta.value == null) return <div className="text-right text-[12px] leading-tight text-slate-400"><span className="block text-[14px] font-normal">—</span>{delta?.caption}</div>
   const up = delta.value > 0
   const flat = delta.value === 0
   const good = flat ? null : up === (delta.higherIsBetter ?? true)
   const colour = good == null ? 'text-slate-500' : good ? 'text-green-600' : 'text-red-600'
   return (
     <div className="text-right text-[12px] leading-tight text-slate-600">
-      <span className={`block text-[17px] font-bold ${colour}`}>
+      <span className={`block text-[14px] font-normal ${colour}`}>
         {flat ? '■' : up ? '▲' : '▼'} {Math.abs(delta.value).toFixed(1)}{delta.unit ?? '%'}
       </span>
       {delta.caption}
@@ -35,6 +37,7 @@ function Delta({ delta }) {
  * optional delta ({ value, unit, caption, higherIsBetter }) and side content. */
 export function KpiCard({ label, value, unit, sub, delta, side, icon: Icon, tone = 'blue', loading }) {
   const t = TONES[tone] ?? TONES.blue
+  const { display, full, plain } = compactKpiValue(value, unit)
   return (
     <div className={`flex min-h-[96px] flex-wrap items-center gap-3 rounded-xl border px-4 py-3 shadow-[0_2px_6px_rgba(16,60,120,0.08)] ${t.card}`}>
       {Icon && (
@@ -44,11 +47,11 @@ export function KpiCard({ label, value, unit, sub, delta, side, icon: Icon, tone
       )}
       {/* min width so a `side` block wraps under the label instead of overlapping it */}
       <div className={`min-w-0 flex-1 ${side ? 'min-w-[130px]' : ''}`}>
-        <div className="text-[14px] font-bold leading-tight text-[#0B2A5B]">{label}</div>
+        <div className="text-[14px] font-medium leading-tight text-slate-700">{label}</div>
         {/* Value + unit, with the delta pushed right; wraps under when the card is narrow. */}
         <div className="mt-1 flex flex-wrap items-end justify-between gap-x-3 gap-y-1">
           <span className="flex items-baseline gap-1.5">
-            <span className="text-[26px] font-extrabold leading-none text-[#0B2A5B]">{loading ? '—' : value}</span>
+            <span className={`${plain ? 'whitespace-nowrap' : ''} text-xl font-semibold leading-tight tabular-nums text-[#0B2A5B] xl:text-2xl`} title={!loading && full ? full : undefined}>{loading ? '—' : display}</span>
             {unit && !loading && <span className="text-[14px] font-medium text-slate-700">{unit}</span>}
           </span>
           {delta && !loading && <Delta delta={delta} />}
