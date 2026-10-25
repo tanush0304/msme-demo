@@ -23,6 +23,7 @@ import { canEditStock, stockEditPatch, validateWipIssueEdit, validateReceiptEdit
 import { getStageAggregatesForPrd } from '../../data/queries/productionLogs'
 import { stageAcceptedQty, wipReceiptAvailable, qtyOverLimitError } from '../../utils/qtyLimits'
 import { dbErrorMessage } from '../../utils/dbErrors'
+import Banner from '../../components/Banner'
 
 const HISTORY_COLUMNS = [
   { key: 'doc_no', label: 'Doc No' },
@@ -282,9 +283,7 @@ export default function WipReceiptScreen({ role }) {
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-page">
         {/* The transaction date that will be saved (today) + the chosen shift. */}
         <ShiftDateLine date={todayISO()} shiftCode={form.shift_code} shifts={shifts} />
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{error}</div>
-        )}
+        <Banner tone="error" message={error} onClose={() => setError(null)} />
 
         <FormSection icon={PackagePlus} title="Receipt Details" subtitle="Hold a completed stage's output" columns={3}>
           <Field label="Receipt No">

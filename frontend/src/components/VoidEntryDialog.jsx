@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Ban } from 'lucide-react'
 import { voidReasonError } from '../utils/voidEntry'
+import Banner from './Banner'
 
 /** List column: red VOID badge, who / when / reason on hover. Export text = void_label. */
 export const VOID_COLUMN = {
@@ -57,7 +58,7 @@ export default function VoidEntryDialog({ docNo, onConfirm, onCancel }) {
         <p className="mb-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
           The entry stays in the list marked VOID and no longer counts anywhere. <strong>This cannot be undone.</strong>
         </p>
-        {error && <div className="mb-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+        <Banner tone="error" message={error} onClose={() => setError(null)} className="mb-3" />
         <label className="block text-xs font-medium text-slate-700">
           Reason <span className="text-red-600">*</span>
           <textarea

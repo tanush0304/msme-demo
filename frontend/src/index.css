@@ -67,3 +67,13 @@ body:has([role='toolbar']) .card-legend { display: none; }
     radial-gradient(900px 650px at 100% 100%, rgb(var(--brand-accent) / 0.09), transparent 70%),
     linear-gradient(135deg, #FFFFFF 0%, #FFFFFF 30%, rgb(var(--brand-accent) / 0.12) 100%);
 }
+
+/* Banner (components/Banner.jsx): short fade + slide-in when it appears. */
+@keyframes banner-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+.banner-in { animation: banner-in 180ms ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .banner-in { animation: none; }
+}

@@ -14,6 +14,7 @@ import { listCustomers } from '../../data/queries/customers'
 import { listProducts } from '../../data/queries/products'
 import { displayDate } from '../../utils/reportPeriods'
 import { orderLines, poSummary, monthsBetween, monthlyPoVsDispatch } from '../../utils/reportOrders'
+import Banner from '../../components/Banner'
 
 const STATUS_TONES = { Closed: 'green', Open: 'red' }
 
@@ -120,7 +121,7 @@ export default function CustomerOrderStatusScreen({ onOpenTraceability }) {
           loading={loading}
           filters={[{ key: 'customer', label: 'Customer', value: r.filters.customerId, onChange: r.setFilter('customerId'), options: customers.map((c) => ({ value: c.customer_id, label: c.customer_name ?? c.customer_id })) }]}
         />
-        {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{error}</div>}
+        <Banner tone="error" message={error} onClose={() => setError(null)} />
 
         <KpiCardRow columns={5}>
           <KpiCard label="Total POs" value={formatQty(po.total)} icon={FileText} tone="blue" loading={loading} />

@@ -11,6 +11,7 @@ import { listOrdersByPrd } from '../../data/queries/customerOrders'
 import { listJobOrderStatus } from '../../data/queries/jobOrders'
 import { listVendors } from '../../data/queries/vendors'
 import { stageLabel } from '../../utils/stageLabel'
+import Banner from '../../components/Banner'
 
 // One row per DC -- a stage split across two vendors shows two rows.
 const DC_COLUMNS = [
@@ -72,11 +73,7 @@ export default function OrderTraceabilityScreen({ initialPrdNo = '' }) {
         onExportPdf={() => exportToPdf(trace.columns, trace.rows, `Order Traceability -- ${prdNo}`, `order_trace_${prdNo}`)}
       />
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-page">
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">
-            {error}
-          </div>
-        )}
+        <Banner tone="error" message={error} onClose={() => setError(null)} />
 
         <FormSection icon={SearchIcon} title="1. Select Order" subtitle="Pick an order to trace" columns={2}>
           <Field label="Production Order (PRD No)">

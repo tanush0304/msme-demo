@@ -12,6 +12,7 @@ import RecordsList from '../../components/RecordsList'
 import { listProducts, createProduct, updateProduct, deleteProduct } from '../../data/queries/products'
 import { listRawMaterials } from '../../data/queries/rawMaterials'
 import { listProductRawMaterials, setProductRawMaterials } from '../../data/queries/productRawMaterials'
+import Banner from '../../components/Banner'
 
 const EMPTY_FORM = {
   part_serial_number: '',
@@ -200,11 +201,7 @@ export default function ProductMaster() {
       />
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-page">
-        {saveError && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">
-            {saveError}
-          </div>
-        )}
+        <Banner tone="error" message={saveError} onClose={() => setSaveError(null)} />
 
         <div className="grid grid-cols-1 items-stretch gap-3 lg:grid-cols-6 [&>div>section]:h-full">
           <div className="lg:col-span-2">

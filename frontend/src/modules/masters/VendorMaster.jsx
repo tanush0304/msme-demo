@@ -12,6 +12,7 @@ import RecordsList from '../../components/RecordsList'
 import { listVendors, createVendor, updateVendor, deleteVendor } from '../../data/queries/vendors'
 import { listJobWorkTypes, createJobWorkType } from '../../data/queries/jobWorkTypes'
 import { listJobWorkTypesForVendor, setVendorJobWorkTypes } from '../../data/queries/vendorJobWorkTypes'
+import Banner from '../../components/Banner'
 
 // Job work master IS a real, shared table (unlike Machine Master's hardcoded
 // operations list), so a custom "Other" value typed here can genuinely become
@@ -216,11 +217,7 @@ export default function VendorMaster() {
       />
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-page">
-        {saveError && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">
-            {saveError}
-          </div>
-        )}
+        <Banner tone="error" message={saveError} onClose={() => setSaveError(null)} />
 
         <div className="grid grid-cols-1 items-stretch gap-3 lg:grid-cols-6 [&>div>section]:h-full">
           <div className="lg:col-span-2">

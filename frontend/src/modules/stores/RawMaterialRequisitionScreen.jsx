@@ -23,6 +23,7 @@ import {
 import StockEditPanel from '../../components/StockEditPanel'
 import { canEditStock, stockEditPatch } from '../../utils/stockEdit'
 import { toNumberOrNull } from '../../utils/numericFields'
+import Banner from '../../components/Banner'
 
 const EMPTY_FORM = {
   prd_no: '',
@@ -207,9 +208,7 @@ export default function RawMaterialRequisitionScreen({ role }) {
       />
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-page">
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{error}</div>
-        )}
+        <Banner tone="error" message={error} onClose={() => setError(null)} />
 
         <FormSection icon={ClipboardPlus} title="1. Requisition Details" subtitle="Pick order, material and part">
           <Field label="Requisition No">

@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabaseClient'
 import pragatiUnnatiLogo from '../assets/pragati-unnati-logo.png'
 import loginBackground from '../assets/login-background.jpg'
 import growthArrow from '../assets/login-growth-arrow.png'
+import Banner from './Banner'
 
 const INPUT_CLASS = 'min-w-0 rounded-md border border-white/70 bg-white px-4 py-3 text-sm font-normal text-[#16365E] shadow-[0_4px_14px_rgba(5,25,58,0.14)] outline-none transition placeholder:text-[#8A9AAF] hover:border-white focus:border-[#8FE06A] focus:ring-4 focus:ring-[#8FE06A]/25'
 const ROW_CLASS = 'grid gap-2 text-lg text-white drop-shadow sm:grid-cols-[170px_minmax(0,1fr)] sm:items-center sm:gap-5 sm:text-xl'
@@ -57,9 +58,7 @@ export default function LoginScreen() {
           <h2 className="text-3xl font-bold text-white drop-shadow sm:text-[44px]">Data Management System</h2>
 
         <form onSubmit={handleSubmit} className="mx-auto mt-8 w-full max-w-[520px] space-y-5 text-left">
-          {error && (
-            <div role="alert" className="rounded-md border border-red-200 bg-white/95 px-3.5 py-3 text-sm text-red-700 shadow-sm">{error}</div>
-          )}
+          <Banner tone="error" message={error} onClose={() => setError(null)} />
 
           <label className={ROW_CLASS}>
             <span>Employee ID</span>

@@ -65,6 +65,7 @@ export function mergeDispatchRows(statusRows, tableRows) {
   return [...live, ...voided].sort((a, b) => String(b.dispatch_date).localeCompare(String(a.dispatch_date)))
 }
 import { stageBackText } from '../../utils/reportOrders'
+import Banner from '../../components/Banner'
 
 const LIST_COLUMNS = [
   { key: 'dc_no', label: 'DC No' },
@@ -366,12 +367,8 @@ export default function JobOrderDispatchScreen({ role }) {
         onExportPdf={() => exportToPdf(LIST_COLUMNS, filteredDispatches, 'Job Order Despatches', 'jobwork_despatches')}
       />
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-page">
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">
-            {error}
-          </div>
-        )}
-        {notice && <div className="bg-green-50 border border-green-200 text-green-800 text-sm px-4 py-2 rounded">{notice}</div>}
+        <Banner tone="error" message={error} onClose={() => setError(null)} />
+        <Banner tone="success" message={notice} onClose={() => setNotice('')} />
         {canEdit && selectedBlockReason && !editingRow && (
           <div className="bg-slate-50 border border-slate-200 text-slate-600 text-sm px-4 py-2 rounded">Edit unavailable: {selectedBlockReason}</div>
         )}
@@ -384,7 +381,7 @@ export default function JobOrderDispatchScreen({ role }) {
 
         {editingRow && (
           <FormSection icon={Pencil} title={`Edit Despatch ${editingRow.dc_no}`} subtitle="Supervisor / admin correction -- recorded with who and when" columns={3}>
-            {editError && <div className="sm:col-span-3 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{editError}</div>}
+            <Banner tone="error" message={editError} onClose={() => setEditError(null)} className="sm:col-span-3" />
             <Field label="PRD No"><AutoFillBox value={editingRow.prd_no} /></Field>
             <Field label="Job Work Type"><AutoFillBox value={editingRow.job_work_code} /></Field>
             <Field label="DC Status">

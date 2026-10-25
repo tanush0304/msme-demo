@@ -4,6 +4,7 @@ import ActionToolbar from '../../components/ActionToolbar'
 import { exportToCsv, exportToPdf } from '../../utils/exportUtils'
 import RecordsList from '../../components/RecordsList'
 import { listPoSummary, listOrdersForPoHeader } from '../../data/queries/customerPoHeaders'
+import Banner from '../../components/Banner'
 
 const PO_COLUMNS = [
   { key: 'po_number', label: 'PO Number' },
@@ -82,9 +83,7 @@ export default function CustomerPoSummaryScreen() {
       />
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-page">
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{error}</div>
-        )}
+        <Banner tone="error" message={error} onClose={() => setError(null)} />
 
         <RecordsList
           title="Customer POs"

@@ -46,3 +46,14 @@ describe('void exclusions in direct reads (034)', () => {
     expect(voidFilter('job order dispatch')).toBe(true)
   })
 })
+
+describe('listPrdsWithProductionLogs (Production Planning Cancel)', () => {
+  beforeEach(() => { calls.length = 0 })
+  it('one prd_no-only read for the whole list; empty list -> no read', async () => {
+    const { listPrdsWithProductionLogs } = await import('./productionLogs')
+    expect((await listPrdsWithProductionLogs([])).size).toBe(0)
+    expect(calls).toHaveLength(0)
+    await listPrdsWithProductionLogs(['PRD-009', 'PRD-010'])
+    expect(calls).toEqual([['production logs', 'select', 'prd_no'], ['production logs', 'in', 'prd_no', ['PRD-009', 'PRD-010']]])
+  })
+})

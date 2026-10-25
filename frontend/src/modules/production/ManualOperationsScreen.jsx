@@ -43,6 +43,7 @@ import ShiftVerificationStatus, { CorrectingShiftBanner } from '../../components
 import { dbErrorMessage } from '../../utils/dbErrors'
 import StageStartGuard from '../../components/StageStartGuard'
 import { earlierIncompleteStage, canStartStage, runningBanner } from '../../utils/stageStartGuard'
+import Banner from '../../components/Banner'
 
 /**
  * Manual-type stages (De-Burring, Final Inspection, Final Dispatch, ...)
@@ -400,11 +401,7 @@ export default function ManualOperationsScreen({ role }) {
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-page">
         {/* Grid's date + shift (an earlier date while correcting a rejected shift). */}
         <ShiftDateLine date={entryDate} shiftCode={shiftCode} shifts={shifts} />
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">
-            {error}
-          </div>
-        )}
+        <Banner tone="error" message={error} onClose={() => setError(null)} />
 
         <FormSection icon={ClipboardCheck} title="1. Select Employee & Order" subtitle="Pick who, then order" columns={3}>
           <Field label="Employee" required>

@@ -19,6 +19,9 @@ import { listRawMaterials } from '../../data/queries/rawMaterials'
 import { listAllProductRawMaterials } from '../../data/queries/productRawMaterials'
 import { suggestSplit, validateSplit, masterBatchSizeFor } from '../../utils/batchSplit'
 import { dbErrorMessage } from '../../utils/dbErrors'
+import Banner from '../../components/Banner'
+
+const STARTED_TITLE = "Production has started -- can't cancel"
 
 const LIST_COLUMNS = [
   { key: 'jc_no', label: 'JC No' },
@@ -267,8 +270,8 @@ export default function ProductionPlanningScreen() {
       />
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-page">
-        {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{error}</div>}
-        {notice && <div className="bg-green-50 border border-green-200 text-green-800 text-sm px-4 py-2 rounded">{notice}</div>}
+        <Banner tone="error" message={error} onClose={() => setError(null)} />
+        <Banner tone="success" message={notice} onClose={() => setNotice('')} />
 
         <FormSection icon={ClipboardList} title="1. Production Planning Details" subtitle="Pick a PO line to plan" columns={2}>
           <Field label="Customer PO No" required>
@@ -386,8 +389,20 @@ export default function ProductionPlanningScreen() {
                   <button className="inline-flex items-center gap-1 text-brandblue hover:underline text-sm" onClick={() => setRouteCardPrd(r.prd_no)}>
                     <Route size={14} /> Route Card
                   </button>
-                  {r.can_cancel && (
+                  {r.can_cancel && !r.has_production_logs && (
                     <button className="inline-flex items-center gap-1 text-red-600 hover:underline text-sm" onClick={() => handleCancelPrd(r)}>
+                      <Ban size={14} /> Cancel
+                    </button>
+                  )}
+                  {/* Stages still Pending but production already logged: the DB would refuse the cancel. */}
+                  {r.can_cancel && r.has_production_logs && (
+                    <button
+                      type="button"
+                      disabled
+                      title={STARTED_TITLE}
+                      aria-label={`Cancel ${r.prd_no}: ${STARTED_TITLE}`}
+                      className="inline-flex cursor-not-allowed items-center gap-1 text-sm text-slate-400"
+                    >
                       <Ban size={14} /> Cancel
                     </button>
                   )}

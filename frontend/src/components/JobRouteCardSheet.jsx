@@ -18,6 +18,7 @@ import {
   buildJobRouteCardRows,
   printJobRouteCard,
 } from '../utils/jobRouteCard'
+import Banner from './Banner'
 
 const TEMPLATE_KEYS = new Set(TEMPLATE_COLUMNS.map((c) => c.key))
 
@@ -194,7 +195,7 @@ export default function JobRouteCardSheet({ prdNo, onClose }) {
         </div>
       </div>
 
-      {error && <div className="m-3 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}
+      <Banner tone="error" message={error} onClose={() => setError(null)} className="m-3" />
       {loading && <div className="px-4 py-3 text-sm text-slate-500">Loading route card...</div>}
 
       {!loading && header && (

@@ -231,3 +231,13 @@ export async function listAllOpenLogs() {
   if (error) throw error
   return data
 }
+
+/** PRD numbers (of `prdNos`) that have at least one production log row --
+ * one light read (prd_no only) for a whole list. Production Planning uses
+ * it to disable Cancel; the database guard still refuses such a cancel. */
+export async function listPrdsWithProductionLogs(prdNos = []) {
+  if (!prdNos.length) return new Set()
+  const { data, error } = await supabase.from('production logs').select('prd_no').in('prd_no', prdNos)
+  if (error) throw error
+  return new Set((data ?? []).map((r) => r.prd_no))
+}

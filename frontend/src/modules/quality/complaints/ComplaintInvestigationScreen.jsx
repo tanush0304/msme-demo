@@ -26,6 +26,7 @@ import {
 import ComplaintRegistrationSections from './ComplaintRegistrationSections'
 import ComplaintList, { COMPLAINT_EXPORT_COLUMNS } from './ComplaintList'
 import useComplaintData from './useComplaintData'
+import Banner from '../../../components/Banner'
 
 const RESOLUTION_FLAGS = [
   ['replacement_required', 'Replacement Required'],
@@ -136,17 +137,11 @@ export default function ComplaintInvestigationScreen({ role, initialComplaintNo 
         onExportPdf={() => exportToPdf(COMPLAINT_EXPORT_COLUMNS, rows, 'Customer Complaints', 'customer_complaints')}
       />
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-page">
-        {(error || data.error) && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{error || data.error}</div>
-        )}
-        {message && !error && (
-          <div className="bg-green-50 border border-green-200 text-green-700 text-sm px-4 py-2 rounded">{message}</div>
-        )}
+        <Banner tone="error" message={error || data.error} onClose={error ? () => setError(null) : undefined} />
+        {!error && <Banner tone="success" message={message} onClose={() => setMessage('')} />}
 
         {selected?.status === 'Closed' && !isSupervisor(role) && (
-          <div className="bg-amber-50 border border-amber-200 text-amber-700 text-sm px-4 py-2 rounded">
-            This complaint is closed. Only a supervisor or admin can change it.
-          </div>
+          <Banner tone="warning" message="This complaint is closed. Only a supervisor or admin can change it." />
         )}
 
         <ComplaintRegistrationSections

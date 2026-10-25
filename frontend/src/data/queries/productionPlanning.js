@@ -4,6 +4,7 @@ import { listProducts } from './products'
 import { listRouteCards, listAllStages } from './routeCards'
 import { derivePlanStatus } from '../../utils/calculations'
 import { orderLineProgress } from '../../utils/batchSplit'
+import { listPrdsWithProductionLogs } from './productionLogs'
 
 /** PO lines with qty still to plan (migration 030: a line is planned in
  * batches, one PRD each, possibly over several sessions). Each line carries
@@ -46,6 +47,10 @@ export async function listProductionPlans() {
     stagesByPrd.get(s.prd_no).push(s)
   }
 
+  // PRDs with production log rows: Cancel is shown disabled for them (the
+  // database refuses the cancel anyway -- this just says so up front).
+  const started = await listPrdsWithProductionLogs(cards.map((c) => c.prd_no))
+
   return cards.map((card) => {
     const order = byPrd.get(card.prd_no)
     const customer = customers.find((c) => c.customer_id === order?.customer_id)
@@ -68,6 +73,7 @@ export async function listProductionPlans() {
       // Cancel is only offered (and only accepted by the database) while
       // nothing has started -- every stage still Pending.
       can_cancel: stages.length > 0 && stages.every((s) => s.status === 'Pending'),
+      has_production_logs: started.has(card.prd_no),
     }
   })
 }

@@ -24,6 +24,7 @@ import {
 } from '../../data/queries/maintenanceLogs'
 import { canEditStock } from '../../utils/stockEdit'
 import { useAppUsers, withEditedLabels, EDITED_COLUMN } from '../../components/StockEditPanel'
+import Banner from '../../components/Banner'
 
 // Type of Maintenance options, per the client's Maintenance Module sheet.
 // Built-ins; values added with "+ Add new" are saved on the visit and
@@ -218,11 +219,7 @@ export default function ChecklistEntryScreen({ role }) {
         onExportPdf={() => exportToPdf(logColumns, filteredRecentLogs, 'Recent Maintenance Visits', 'maintenance_visits')}
       />
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-page">
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">
-            {error}
-          </div>
-        )}
+        <Banner tone="error" message={error} onClose={() => setError(null)} />
 
         <FormSection icon={Wrench} title="1. Visit Details" subtitle="Maintenance visit and machine" columns={4}>
           <Field label="Machine" required>
@@ -369,7 +366,7 @@ function VisitEditPanel({ log, machines, employees, shifts, maintenanceTypeOptio
 
   return (
     <FormSection icon={Pencil} title="Edit Maintenance Visit" subtitle="Supervisor / admin correction -- recorded with who and when" columns={4}>
-      {error && <div className="sm:col-span-4 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">{error}</div>}
+      <Banner tone="error" message={error} onClose={() => setError(null)} className="sm:col-span-4" />
       <Field label="Machine">
         <AutoFillBox value={machine ? machineOptionLabel(machine) : log.machine_id} />
       </Field>

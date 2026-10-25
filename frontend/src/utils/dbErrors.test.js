@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { dbErrorMessage, isQtyLimitError } from './dbErrors'
+import { dbErrorMessage, isQtyLimitError, friendlyDbMessage } from './dbErrors'
 
 // The 036 guard messages, one per screen / save path (text as the DB raises it).
 const DB_REFUSALS = {
@@ -48,5 +48,26 @@ describe('screens use dbErrorMessage on save', () => {
     const src = readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
     expect(src).toMatch(/import \{ dbErrorMessage \} from '(\.\.\/)+utils\/dbErrors'/)
     expect(src.match(/dbErrorMessage\(e\)/g)?.length ?? 0).toBeGreaterThanOrEqual(count)
+  })
+})
+
+describe('friendlyDbMessage', () => {
+  it('PRD cancel refusal -> plain text with that PRD number', () => {
+    expect(friendlyDbMessage('PRD PRD-009 has started (2 row(s) in "production logs") and cannot be cancelled'))
+      .toBe("PRD-009 can't be cancelled: production has already started on it. Only PRDs with no production entries can be cancelled.")
+    expect(friendlyDbMessage('PRD-009 has started (3 row(s) in "production logs") and cannot be cancelled'))
+      .toBe("PRD-009 can't be cancelled: production has already started on it. Only PRDs with no production entries can be cancelled.")
+  })
+  it('raw permission / duplicate key / network / login messages', () => {
+    expect(friendlyDbMessage('permission denied for table "customer orders"')).toBe('You do not have permission to make this change.')
+    expect(friendlyDbMessage('duplicate key value violates unique constraint "customers_pkey"')).toBe('This record already exists (a value that must be unique is already used).')
+    expect(friendlyDbMessage('Failed to fetch')).toBe("Can't reach the server -- check your connection and try again.")
+    expect(friendlyDbMessage('Invalid login credentials')).toBe('Invalid username or password')
+  })
+  it('unknown and guard messages pass through unchanged', () => {
+    const guard = 'Quantity issued (60) is more than the current stock of TEST-RM01 (50)'
+    expect(friendlyDbMessage(guard)).toBe(guard)
+    expect(friendlyDbMessage('')).toBe('')
+    expect(dbErrorMessage({ message: 'PRD-012 has started (1 row(s) in "production logs") and cannot be cancelled' })).toMatch(/^PRD-012 can't be cancelled/)
   })
 })

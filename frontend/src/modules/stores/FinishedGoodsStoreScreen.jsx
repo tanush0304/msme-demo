@@ -33,6 +33,7 @@ import VoidEntryDialog, { VOID_COLUMN } from '../../components/VoidEntryDialog'
 import { voidEntry } from '../../data/queries/voidEntries'
 import { VOID_TYPES, isVoided, voidBlockReason, withVoidLabels, voidRowClass } from '../../utils/voidEntry'
 import { dbErrorMessage } from '../../utils/dbErrors'
+import Banner from '../../components/Banner'
 
 const EMPTY_DISPATCH_FORM = {
   employee_id: '',
@@ -434,12 +435,8 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch', rol
       />
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-page">
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded">
-            {error}
-          </div>
-        )}
-        {notice && <div className="bg-green-50 border border-green-200 text-green-800 text-sm px-4 py-2 rounded">{notice}</div>}
+        <Banner tone="error" message={error} onClose={() => setError(null)} />
+        <Banner tone="success" message={notice} onClose={() => setNotice('')} />
         {voidBlock && selectedRow && !editingRow && (
           <div className="bg-slate-50 border border-slate-200 text-slate-600 text-sm px-4 py-2 rounded">Void unavailable: {voidBlock}</div>
         )}
