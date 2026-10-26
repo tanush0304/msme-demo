@@ -20,6 +20,7 @@ import { machineOptionLabel } from '../../utils/machineLabel'
 import { listJobWorkTypes } from '../../data/queries/jobWorkTypes'
 import { toNumberOrNull } from '../../utils/numericFields'
 import Banner from '../../components/Banner'
+import { useDeleteConfirm, labelOf } from '../../components/ConfirmDialog'
 
 const EMPTY_FORM = {
   id: '',
@@ -44,6 +45,7 @@ const LIST_COLUMNS = [
 
 export default function CycleTimeMaster() {
   const [records, setRecords] = useState([])
+  const del = useDeleteConfirm()
   const [products, setProducts] = useState([])
   const [machines, setMachines] = useState([])
   const [jobWorkTypes, setJobWorkTypes] = useState([])
@@ -157,20 +159,21 @@ export default function CycleTimeMaster() {
     }
   }
 
-  async function handleDelete() {
+  function handleDelete() {
     if (!form.id) return
-    if (!confirm(`Delete this cycle time row (id ${form.id})? This cannot be undone.`)) return
-    setSaving(true)
-    setSaveError(null)
-    try {
-      await deleteCycleTime(form.id)
-      await refresh()
-      handleClear()
-    } catch (e) {
-      setSaveError(e.message)
-    } finally {
-      setSaving(false)
-    }
+    del.ask('cycle time', labelOf(form.part_serial_number, `Stage ${form.stage_no ?? form.seq} ${form.operation}${form.machine_id ? ` (${form.machine_id})` : ''}`), async () => {
+      setSaving(true)
+      setSaveError(null)
+      try {
+        await deleteCycleTime(form.id)
+        await refresh()
+        handleClear()
+      } catch (e) {
+        setSaveError(e.message)
+      } finally {
+        setSaving(false)
+      }
+    })
   }
 
   function handleExportExcel() {
@@ -193,6 +196,7 @@ export default function CycleTimeMaster() {
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
+      {del.dialog}
       <PageHeader
         title="Cycle Time Master"
         subtitle="Manage Production Routes  |  Product + Operation + Machine / Job Work"

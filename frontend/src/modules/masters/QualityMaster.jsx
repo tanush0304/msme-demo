@@ -19,6 +19,7 @@ import { listMachines } from '../../data/queries/machines'
 import { machineOptionLabel } from '../../utils/machineLabel'
 import { toNumberOrNull } from '../../utils/numericFields'
 import Banner from '../../components/Banner'
+import { useDeleteConfirm, labelOf } from '../../components/ConfirmDialog'
 
 const EMPTY_FORM = {
   id: '',
@@ -53,6 +54,7 @@ function inputValue(value) {
 
 export default function QualityMaster() {
   const [records, setRecords] = useState([])
+  const del = useDeleteConfirm()
   const [products, setProducts] = useState([])
   const [machines, setMachines] = useState([])
   const [cycleTimes, setCycleTimes] = useState([])
@@ -177,20 +179,21 @@ export default function QualityMaster() {
     }
   }
 
-  async function handleDelete() {
+  function handleDelete() {
     if (!form.id) return
-    if (!confirm(`Delete this quality parameter (id ${form.id})? This cannot be undone.`)) return
-    setSaving(true)
-    setSaveError(null)
-    try {
-      await deleteQualityParameter(form.id)
-      await refresh()
-      handleClear()
-    } catch (e) {
-      setSaveError(e.message)
-    } finally {
-      setSaving(false)
-    }
+    del.ask('quality parameter', labelOf(form.part_serial_number, `${form.quality_parameter}${form.machine_id ? ` (${form.machine_id})` : ''}`), async () => {
+      setSaving(true)
+      setSaveError(null)
+      try {
+        await deleteQualityParameter(form.id)
+        await refresh()
+        handleClear()
+      } catch (e) {
+        setSaveError(e.message)
+      } finally {
+        setSaving(false)
+      }
+    })
   }
 
   function handleExportExcel() {
@@ -210,6 +213,7 @@ export default function QualityMaster() {
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
+      {del.dialog}
       <PageHeader title="Quality Master" subtitle="Define numeric and text-based inspection standards" />
       <ActionToolbar
         onNew={handleNew}

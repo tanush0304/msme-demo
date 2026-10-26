@@ -13,6 +13,7 @@ import { listProducts, createProduct, updateProduct, deleteProduct } from '../..
 import { listRawMaterials } from '../../data/queries/rawMaterials'
 import { listProductRawMaterials, setProductRawMaterials } from '../../data/queries/productRawMaterials'
 import Banner from '../../components/Banner'
+import { useDeleteConfirm, labelOf } from '../../components/ConfirmDialog'
 
 const EMPTY_FORM = {
   part_serial_number: '',
@@ -34,6 +35,7 @@ const LIST_COLUMNS = [
 
 export default function ProductMaster() {
   const [records, setRecords] = useState([])
+  const del = useDeleteConfirm()
   const [rawMaterials, setRawMaterials] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -151,20 +153,21 @@ export default function ProductMaster() {
     }
   }
 
-  async function handleDelete() {
+  function handleDelete() {
     if (!form.part_serial_number) return
-    if (!confirm(`Delete product ${form.part_serial_number}? This cannot be undone.`)) return
-    setSaving(true)
-    setSaveError(null)
-    try {
-      await deleteProduct(form.part_serial_number)
-      await refresh()
-      handleClear()
-    } catch (e) {
-      setSaveError(e.message)
-    } finally {
-      setSaving(false)
-    }
+    del.ask('product', labelOf(form.part_serial_number, form.part_name), async () => {
+      setSaving(true)
+      setSaveError(null)
+      try {
+        await deleteProduct(form.part_serial_number)
+        await refresh()
+        handleClear()
+      } catch (e) {
+        setSaveError(e.message)
+      } finally {
+        setSaving(false)
+      }
+    })
   }
 
   function handleExportExcel() {
@@ -186,6 +189,7 @@ export default function ProductMaster() {
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
+      {del.dialog}
       <PageHeader title="Product Master" subtitle="Manage Product Information  |  Part Details, Unit & Status" />
       <ActionToolbar
         onNew={handleNew}

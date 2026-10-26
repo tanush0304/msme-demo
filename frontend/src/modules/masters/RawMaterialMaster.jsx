@@ -25,6 +25,7 @@ import {
 } from '../../data/queries/rmSuppliers'
 import { saveRawMaterialWithSuppliers, validateSupplierDraftRows } from '../../utils/rawMaterialSave'
 import Banner from '../../components/Banner'
+import { useDeleteConfirm, labelOf } from '../../components/ConfirmDialog'
 
 const EMPTY_FORM = {
   raw_material_code: '',
@@ -76,6 +77,7 @@ const STOCK_FIELDS = ['supplier_names', 'receipts', 'issued', 'closing_stock']
 
 export default function RawMaterialMaster() {
   const [records, setRecords] = useState([])
+  const del = useDeleteConfirm()
   const [suppliers, setSuppliers] = useState([])
   // Only for the shared UoM dropdown options.
   const [products, setProducts] = useState([])
@@ -186,22 +188,23 @@ export default function RawMaterialMaster() {
   // A persisted link (has a real id) is removed immediately, same as
   // before. A draft row (added this session, not yet saved) is just
   // dropped from the local list -- there's nothing in the DB to delete.
-  async function handleRemoveSupplierLink(row) {
+  function handleRemoveSupplierLink(row) {
     if (!row.id) {
       setSupplierLinks((rows) => rows.filter((r) => r !== row))
       return
     }
-    if (!confirm('Remove this supplier link?')) return
-    setLinkSaving(true)
-    setSaveError(null)
-    try {
-      await deleteRmSupplierLink(row.id)
-      await refreshSupplierLinks(form.raw_material_code)
-    } catch (e) {
-      setSaveError(e.message)
-    } finally {
-      setLinkSaving(false)
-    }
+    del.ask('supplier link', labelOf(form.raw_material_code, suppliers.find((s) => s.supplier_id === row.supplier_id)?.supplier_name ?? row.supplier_id), async () => {
+      setLinkSaving(true)
+      setSaveError(null)
+      try {
+        await deleteRmSupplierLink(row.id)
+        await refreshSupplierLinks(form.raw_material_code)
+      } catch (e) {
+        setSaveError(e.message)
+      } finally {
+        setLinkSaving(false)
+      }
+    })
   }
 
   async function handleSave() {
@@ -267,20 +270,21 @@ export default function RawMaterialMaster() {
     }
   }
 
-  async function handleDelete() {
+  function handleDelete() {
     if (!form.raw_material_code) return
-    if (!confirm(`Delete raw material ${form.raw_material_code}? This cannot be undone.`)) return
-    setSaving(true)
-    setSaveError(null)
-    try {
-      await deleteRawMaterial(form.raw_material_code)
-      await refresh()
-      handleClear()
-    } catch (e) {
-      setSaveError(e.message)
-    } finally {
-      setSaving(false)
-    }
+    del.ask('raw material', labelOf(form.raw_material_code, form.raw_material_name), async () => {
+      setSaving(true)
+      setSaveError(null)
+      try {
+        await deleteRawMaterial(form.raw_material_code)
+        await refresh()
+        handleClear()
+      } catch (e) {
+        setSaveError(e.message)
+      } finally {
+        setSaving(false)
+      }
+    })
   }
 
   function handleExportExcel() {
@@ -317,6 +321,7 @@ export default function RawMaterialMaster() {
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
+      {del.dialog}
       <PageHeader
         title="Raw Material Master"
         subtitle="Manage Raw Material Inventory  |  Track Type, Dimensions & Suppliers"

@@ -18,6 +18,7 @@ import { listMachines } from '../../data/queries/machines'
 import { machineOptionLabel } from '../../utils/machineLabel'
 import { BUILT_IN_FREQUENCIES, addFrequency, isBuiltInFrequency, parseIntervalDays, withIntervalDays } from '../../utils/maintenanceFrequency'
 import Banner from '../../components/Banner'
+import { useDeleteConfirm, labelOf } from '../../components/ConfirmDialog'
 
 const EMPTY_FORM = { id: '', machine_id: '', checklist_item: '', remarks: '' }
 const EMPTY_SCHEDULE = { machine_id: '', maintenance_frequency: '', last_maintenance_date: '', next_maintenance_due: '', interval_days: '', status: 'Active', remarks: '' }
@@ -40,6 +41,7 @@ const SCHEDULE_COLUMNS = [
 
 export default function MaintenanceMaster() {
   const [records, setRecords] = useState([])
+  const del = useDeleteConfirm()
   const [scheduleRecords, setScheduleRecords] = useState([])
   const [machines, setMachines] = useState([])
   const [loading, setLoading] = useState(true)
@@ -97,13 +99,15 @@ export default function MaintenanceMaster() {
     finally { setSaving(false) }
   }
 
-  async function handleDelete() {
-    if (!form.id || !confirm(`Delete this checklist item (id ${form.id})? This cannot be undone.`)) return
-    setSaving(true)
-    setSaveError(null)
-    try { await deleteMaintenanceChecklistItem(form.id); await refresh(); handleClear() }
-    catch (e) { setSaveError(e.message) }
-    finally { setSaving(false) }
+  function handleDelete() {
+    if (!form.id) return
+    del.ask('checklist item', labelOf(form.machine_id, form.checklist_item), async () => {
+      setSaving(true)
+      setSaveError(null)
+      try { await deleteMaintenanceChecklistItem(form.id); await refresh(); handleClear() }
+      catch (e) { setSaveError(e.message) }
+      finally { setSaving(false) }
+    })
   }
 
   function handleScheduleMachine(e) {
@@ -181,6 +185,7 @@ export default function MaintenanceMaster() {
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
+      {del.dialog}
       <PageHeader title="Maintenance Master" subtitle="Machine schedules and reusable checklist items" />
       <ActionToolbar
         onNew={handleNew} onSave={handleSave} onEdit={handleEdit} onDelete={handleDelete} onClear={handleClear}

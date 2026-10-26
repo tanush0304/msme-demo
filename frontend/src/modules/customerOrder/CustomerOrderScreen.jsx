@@ -25,6 +25,7 @@ import { listProducts, resolveProductWithConfirmation } from '../../data/queries
 import { customerDropdownOptions } from '../../utils/customerLabel'
 import { enquiryOptionsForOrder } from '../../utils/qtnOption'
 import Banner from '../../components/Banner'
+import { useDeleteConfirm, labelOf } from '../../components/ConfirmDialog'
 
 const EMPTY_FORM = {
   order_line_id: '',
@@ -87,6 +88,7 @@ const ORDER_LINE_TYPES = { numeric: ['order_qty'], date: ['po_date', 'expected_d
 
 export default function CustomerOrderScreen() {
   const [records, setRecords] = useState([])
+  const del = useDeleteConfirm()
   const [enquiries, setEnquiries] = useState([])
   const [customers, setCustomers] = useState([])
   // Saved PO headers -- only for the Delivery / Payment Terms dropdown options.
@@ -380,21 +382,22 @@ export default function CustomerOrderScreen() {
     }
   }
 
-  async function handleDelete() {
+  function handleDelete() {
     if (mode !== 'edit' && mode !== 'view') return
     if (!form.order_line_id) return
-    if (!confirm(`Delete this PO line (${form.po_number} – ${form.part_serial_number})? This cannot be undone.`)) return
-    setSaving(true)
-    setSaveError(null)
-    try {
-      await deleteCustomerOrder(form.order_line_id)
-      await refresh()
-      handleNew()
-    } catch (e) {
-      setSaveError(e.message)
-    } finally {
-      setSaving(false)
-    }
+    del.ask('PO line', labelOf(form.po_number, form.part_serial_number), async () => {
+      setSaving(true)
+      setSaveError(null)
+      try {
+        await deleteCustomerOrder(form.order_line_id)
+        await refresh()
+        handleNew()
+      } catch (e) {
+        setSaveError(e.message)
+      } finally {
+        setSaving(false)
+      }
+    })
   }
 
   function handleExportExcel() {
@@ -420,6 +423,7 @@ export default function CustomerOrderScreen() {
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
+      {del.dialog}
       <PageHeader title="New Order" subtitle="Purchase Order Stage  |  One PO, Many Line Items" />
       <ActionToolbar
         onNew={handleNew}

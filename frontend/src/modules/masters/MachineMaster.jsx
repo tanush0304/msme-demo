@@ -11,6 +11,7 @@ import { listMachines, createMachine, updateMachine, deleteMachine } from '../..
 import { listOperationsForMachine, setMachineOperations } from '../../data/queries/machineOperations'
 import { listMachineOperationOptions, createMachineOperationOption } from '../../data/queries/operationsMaster'
 import Banner from '../../components/Banner'
+import { useDeleteConfirm, labelOf } from '../../components/ConfirmDialog'
 
 const EMPTY_FORM = {
   machine_id: '',
@@ -40,6 +41,7 @@ const LIST_COLUMNS = [
 
 export default function MachineMaster() {
   const [records, setRecords] = useState([])
+  const del = useDeleteConfirm()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [listSearch, setListSearch] = useState('')
@@ -120,19 +122,21 @@ export default function MachineMaster() {
     }
   }
 
-  async function handleDelete() {
-    if (!form.machine_id || !confirm(`Delete machine ${form.machine_id}? This cannot be undone.`)) return
-    setSaving(true)
-    setSaveError(null)
-    try {
-      await deleteMachine(form.machine_id)
-      await refresh()
-      handleClear()
-    } catch (e) {
-      setSaveError(e.message)
-    } finally {
-      setSaving(false)
-    }
+  function handleDelete() {
+    if (!form.machine_id) return
+    del.ask('machine', labelOf(form.machine_id, form.machine_name), async () => {
+      setSaving(true)
+      setSaveError(null)
+      try {
+        await deleteMachine(form.machine_id)
+        await refresh()
+        handleClear()
+      } catch (e) {
+        setSaveError(e.message)
+      } finally {
+        setSaving(false)
+      }
+    })
   }
 
   const filteredRecords = records.filter((row) => {
@@ -145,6 +149,7 @@ export default function MachineMaster() {
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
+      {del.dialog}
       <PageHeader title="Machine Master" subtitle="Manage Machine Inventory  |  Track Assets & Capabilities" />
       <ActionToolbar
         onNew={handleNew}

@@ -23,6 +23,7 @@ import { todayISO } from '../../utils/dates'
 import { deriveEnquiryStatuses } from '../../utils/enquiryStatus'
 import { toNumberOrNull } from '../../utils/numericFields'
 import Banner from '../../components/Banner'
+import { useDeleteConfirm, labelOf } from '../../components/ConfirmDialog'
 
 const NEW_PART_VALUE = '__new__'
 
@@ -61,6 +62,7 @@ const LIST_COLUMNS = [
 
 export default function CustomerEnquiryScreen() {
   const [records, setRecords] = useState([])
+  const del = useDeleteConfirm()
   const [customers, setCustomers] = useState([])
   const [products, setProducts] = useState([])
   const [orders, setOrders] = useState([])
@@ -249,20 +251,21 @@ export default function CustomerEnquiryScreen() {
     }
   }
 
-  async function handleDelete() {
+  function handleDelete() {
     if (!form.qtn_no) return
-    if (!confirm(`Delete enquiry ${form.qtn_no}? This cannot be undone.`)) return
-    setSaving(true)
-    setSaveError(null)
-    try {
-      await deleteCustomerEnquiry(form.qtn_no)
-      await refresh()
-      handleClear()
-    } catch (e) {
-      setSaveError(e.message)
-    } finally {
-      setSaving(false)
-    }
+    del.ask('enquiry', labelOf(form.qtn_no, customers.find((c) => c.customer_id === form.customer_id)?.customer_name ?? form.customer_id), async () => {
+      setSaving(true)
+      setSaveError(null)
+      try {
+        await deleteCustomerEnquiry(form.qtn_no)
+        await refresh()
+        handleClear()
+      } catch (e) {
+        setSaveError(e.message)
+      } finally {
+        setSaving(false)
+      }
+    })
   }
 
   function handleExportExcel() {
@@ -295,6 +298,7 @@ export default function CustomerEnquiryScreen() {
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
+      {del.dialog}
       <PageHeader title="New Enquiry" subtitle="Quotation Stage  |  Enquiry to Quote" />
       <ActionToolbar
         onNew={handleNew}

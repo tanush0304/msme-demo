@@ -8,6 +8,7 @@ import SelectWithAddNew, { mergeOptions } from './SelectWithAddNew'
 import { exportToCsv, exportToPdf } from '../utils/exportUtils'
 import { withTypedFields, typedKeysFromFields } from '../utils/numericFields'
 import Banner from './Banner'
+import { useDeleteConfirm, labelOf } from './ConfirmDialog'
 
 // A section's width reflects how much content it holds, not a fixed column
 // split -- a short section (few fields) can sit narrower next to a taller
@@ -45,8 +46,11 @@ export default function MasterFormScreen({
   searchFields,
   api,
   exportFilename,
+  recordType = 'record',
+  nameField,
 }) {
   const [records, setRecords] = useState([])
+  const del = useDeleteConfirm()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [listSearch, setListSearch] = useState('')
@@ -129,20 +133,21 @@ export default function MasterFormScreen({
     }
   }
 
-  async function handleDelete() {
+  function handleDelete() {
     if (!form[pkField]) return
-    if (!confirm(`Delete this record (${form[pkField]})? This cannot be undone.`)) return
-    setSaving(true)
-    setSaveError(null)
-    try {
-      await api.remove(form[pkField])
-      await refresh()
-      handleClear()
-    } catch (e) {
-      setSaveError(e.message)
-    } finally {
-      setSaving(false)
-    }
+    del.ask(recordType, labelOf(form[pkField], nameField ? form[nameField] : ''), async () => {
+      setSaving(true)
+      setSaveError(null)
+      try {
+        await api.remove(form[pkField])
+        await refresh()
+        handleClear()
+      } catch (e) {
+        setSaveError(e.message)
+      } finally {
+        setSaving(false)
+      }
+    })
   }
 
   function handleExportExcel() {
@@ -164,6 +169,7 @@ export default function MasterFormScreen({
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
+      {del.dialog}
       <PageHeader title={title} subtitle={subtitle} />
       <ActionToolbar
         onNew={handleNew}

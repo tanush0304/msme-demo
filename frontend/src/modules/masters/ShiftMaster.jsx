@@ -9,6 +9,7 @@ import RecordsList from '../../components/RecordsList'
 import { listShifts, createShift, updateShift, deleteShift } from '../../data/queries/shifts'
 import { computeShiftHours, formatTime12 } from '../../utils/shiftCalculations'
 import Banner from '../../components/Banner'
+import { useDeleteConfirm, labelOf } from '../../components/ConfirmDialog'
 
 // Shift Duration / Net Working Hours used to be typed in by hand; they're
 // now always derived from start_time/end_time/lunch_break_duration via
@@ -37,6 +38,7 @@ const LIST_COLUMNS = [
 
 export default function ShiftMaster() {
   const [records, setRecords] = useState([])
+  const del = useDeleteConfirm()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [listSearch, setListSearch] = useState('')
@@ -149,20 +151,21 @@ export default function ShiftMaster() {
     }
   }
 
-  async function handleDelete() {
+  function handleDelete() {
     if (!form.shift_code) return
-    if (!confirm(`Delete this shift (${form.shift_code})? This cannot be undone.`)) return
-    setSaving(true)
-    setSaveError(null)
-    try {
-      await deleteShift(form.shift_code)
-      await refresh()
-      handleClear()
-    } catch (e) {
-      setSaveError(e.message)
-    } finally {
-      setSaving(false)
-    }
+    del.ask('shift', labelOf(form.shift_code, form.shift_name), async () => {
+      setSaving(true)
+      setSaveError(null)
+      try {
+        await deleteShift(form.shift_code)
+        await refresh()
+        handleClear()
+      } catch (e) {
+        setSaveError(e.message)
+      } finally {
+        setSaving(false)
+      }
+    })
   }
 
   function handleExportExcel() {
@@ -183,6 +186,7 @@ export default function ShiftMaster() {
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
+      {del.dialog}
       <PageHeader title="Shift Master" subtitle="Manage Shift Schedules  |  Working Hours & Breaks" />
       <ActionToolbar
         onNew={handleNew}

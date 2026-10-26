@@ -13,6 +13,7 @@ import { listVendors, createVendor, updateVendor, deleteVendor } from '../../dat
 import { listJobWorkTypes, createJobWorkType } from '../../data/queries/jobWorkTypes'
 import { listJobWorkTypesForVendor, setVendorJobWorkTypes } from '../../data/queries/vendorJobWorkTypes'
 import Banner from '../../components/Banner'
+import { useDeleteConfirm, labelOf } from '../../components/ConfirmDialog'
 
 // Job work master IS a real, shared table (unlike Machine Master's hardcoded
 // operations list), so a custom "Other" value typed here can genuinely become
@@ -58,6 +59,7 @@ const LIST_COLUMNS = [
 
 export default function VendorMaster() {
   const [records, setRecords] = useState([])
+  const del = useDeleteConfirm()
   const [jobWorkTypes, setJobWorkTypes] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -167,20 +169,21 @@ export default function VendorMaster() {
     }
   }
 
-  async function handleDelete() {
+  function handleDelete() {
     if (!form.vendor_id) return
-    if (!confirm(`Delete vendor ${form.vendor_id}? This cannot be undone.`)) return
-    setSaving(true)
-    setSaveError(null)
-    try {
-      await deleteVendor(form.vendor_id)
-      await refresh()
-      handleClear()
-    } catch (e) {
-      setSaveError(e.message)
-    } finally {
-      setSaving(false)
-    }
+    del.ask('vendor', labelOf(form.vendor_id, form.vendor_name), async () => {
+      setSaving(true)
+      setSaveError(null)
+      try {
+        await deleteVendor(form.vendor_id)
+        await refresh()
+        handleClear()
+      } catch (e) {
+        setSaveError(e.message)
+      } finally {
+        setSaving(false)
+      }
+    })
   }
 
   function handleExportExcel() {
@@ -202,6 +205,7 @@ export default function VendorMaster() {
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
+      {del.dialog}
       <PageHeader title="Vendor Master" subtitle="Manage Vendor Information  |  Outsourcing Partners" />
       <ActionToolbar
         onNew={handleNew}

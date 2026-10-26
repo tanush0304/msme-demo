@@ -14,6 +14,8 @@ import { listMaintenanceLogsSince } from '../../data/queries/maintenanceLogs'
 import { listMaintenanceSchedules } from '../../data/queries/maintenanceSchedules'
 import { weekCellState } from '../../utils/maintenanceGrid'
 import Banner from '../../components/Banner'
+import { useDeleteConfirm, labelOf } from '../../components/ConfirmDialog'
+import { displayDate } from '../../utils/reportPeriods'
 
 const WEEK_COUNT = 14
 
@@ -32,6 +34,7 @@ function toISODate(d) {
 
 export default function WeeklyPlanGridScreen() {
   const [machines, setMachines] = useState([])
+  const del = useDeleteConfirm()
   const [planStatus, setPlanStatus] = useState([])
   const [logs, setLogs] = useState([])
   const [schedules, setSchedules] = useState([])
@@ -81,24 +84,27 @@ export default function WeeklyPlanGridScreen() {
   async function handleCellClick(machineId, week) {
     const cell = findCell(machineId, week)
     if (cell.status === 'Completed') return
-    setBusyCell(`${machineId}-${week}`)
-    setError(null)
-    try {
-      if (cell.status === null || cell.status === 'Due') {
-        await scheduleMaintenanceWeek(machineId, week)
-      } else if (cell.status === 'Planned') {
-        if (!confirm('Remove this scheduled maintenance week?')) {
-          setBusyCell(null)
-          return
-        }
-        await unscheduleMaintenanceWeek(cell.planId)
+    const run = async (write) => {
+      setBusyCell(`${machineId}-${week}`)
+      setError(null)
+      try {
+        await write()
+        await refresh()
+      } catch (e) {
+        setError(e.message)
+      } finally {
+        setBusyCell(null)
       }
+    }
+    if (cell.status === null || cell.status === 'Due') {
+      await run(() => scheduleMaintenanceWeek(machineId, week))
+    } else if (cell.status === 'Planned') {
       // Completed cells are derived from real logs -- not editable here.
-      await refresh()
-    } catch (e) {
-      setError(e.message)
-    } finally {
-      setBusyCell(null)
+      const machine = machines.find((m) => m.machine_id === machineId)
+      del.ask('planned maintenance', labelOf(machine?.machine_name ?? machineId, `week of ${displayDate(week)}`), () => run(() => unscheduleMaintenanceWeek(cell.planId)), {
+        title: 'Remove planned maintenance?',
+        confirmText: 'Remove',
+      })
     }
   }
 
@@ -124,6 +130,7 @@ export default function WeeklyPlanGridScreen() {
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
+      {del.dialog}
       <PageHeader title="Maintenance Planning" subtitle="Click a Cell to Schedule  |  Green = Completed, Amber = Planned, Outline = Next Due" />
       <ActionToolbar
         showCrudButtons={false}

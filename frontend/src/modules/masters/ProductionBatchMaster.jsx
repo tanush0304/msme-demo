@@ -16,6 +16,7 @@ import {
 import { listProducts } from '../../data/queries/products'
 import { toNumberOrNull } from '../../utils/numericFields'
 import Banner from '../../components/Banner'
+import { useDeleteConfirm, labelOf } from '../../components/ConfirmDialog'
 
 const EMPTY_FORM = {
   part_serial_number: '',
@@ -29,6 +30,7 @@ const LIST_COLUMNS = [
 
 export default function ProductionBatchMaster() {
   const [records, setRecords] = useState([])
+  const del = useDeleteConfirm()
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -110,20 +112,21 @@ export default function ProductionBatchMaster() {
     }
   }
 
-  async function handleDelete() {
+  function handleDelete() {
     if (!form.part_serial_number) return
-    if (!confirm(`Delete the batch quantity for ${form.part_serial_number}? This cannot be undone.`)) return
-    setSaving(true)
-    setSaveError(null)
-    try {
-      await deleteProductionBatch(form.part_serial_number)
-      await refresh()
-      handleClear()
-    } catch (e) {
-      setSaveError(e.message)
-    } finally {
-      setSaving(false)
-    }
+    del.ask('batch quantity', labelOf(form.part_serial_number), async () => {
+      setSaving(true)
+      setSaveError(null)
+      try {
+        await deleteProductionBatch(form.part_serial_number)
+        await refresh()
+        handleClear()
+      } catch (e) {
+        setSaveError(e.message)
+      } finally {
+        setSaving(false)
+      }
+    })
   }
 
   function handleExportExcel() {
@@ -144,6 +147,7 @@ export default function ProductionBatchMaster() {
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
+      {del.dialog}
       <PageHeader
         title="Production Batch Master"
         subtitle="Manage Standard Batch Quantities  |  One Per Product"
