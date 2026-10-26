@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { orderLines, poSummary, monthsBetween, monthlyPoVsDispatch, isDcOverdue, jobOrderRows, jobOrderCounts, stageBackText, dcTableStatusLabel, dcStatusCellText } from './reportOrders'
+import { orderLines, poSummary, monthsBetween, monthlyPoVsDispatch, isDcOverdue, jobOrderRows, jobOrderCounts, stageBackText, dcTableStatusLabel, dcStatusCellText, emptyPoMessage } from './reportOrders'
 
 describe('customer orders', () => {
   const orders = [
@@ -77,5 +77,12 @@ describe('dcTableStatusLabel (Job Order dashboard table label)', () => {
     expect(dcStatusCellText('Closed Short', false)).toBe('Partially Received (Closed)')
     expect(dcStatusCellText('Partially Received', true)).toBe('Partially Received (Overdue)')
     expect(dcStatusCellText('Sent', false)).toBe('Sent')
+  })
+})
+
+describe('emptyPoMessage', () => {
+  it('names the latest PO, or says none exist', () => {
+    expect(emptyPoMessage({ po_number: 'PO-7', po_date: '2026-03-05' })).toBe('No POs dated in this period. Latest PO: PO-7 dated 05-03-2026.')
+    expect(emptyPoMessage(null)).toBe('No POs recorded yet.')
   })
 })

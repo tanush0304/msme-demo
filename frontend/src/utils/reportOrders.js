@@ -1,5 +1,6 @@
 // Pure logic for the R4 reports: Customer Order Status and Job Order Status.
 import { displayStatus } from './statusLabels'
+import { displayDate } from './reportPeriods'
 
 function num(v) {
   const n = Number(v)
@@ -70,6 +71,12 @@ export function monthlyPoVsDispatch(lines, dispatches, months) {
     disp.set(d.transaction_date.slice(0, 7), (disp.get(d.transaction_date.slice(0, 7)) ?? 0) + num(d.qty))
   }
   return months.map((m) => ({ month: m, label: monthLabel(m), po: po.get(m) ?? 0, dispatched: disp.get(m) ?? 0 }))
+}
+
+/** Empty-state line for Customer Order Status; `latest` = newest PO or null. */
+export function emptyPoMessage(latest) {
+  if (!latest) return 'No POs recorded yet.'
+  return `No POs dated in this period. Latest PO: ${latest.po_number} dated ${displayDate(latest.po_date)}.`
 }
 
 // ---------------------------------------------------------------- Job orders

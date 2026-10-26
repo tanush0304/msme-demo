@@ -8,12 +8,13 @@ import useReportPeriod from '../../components/reports/useReportPeriod'
 import { KpiCard, KpiCardRow, formatQty } from '../../components/reports/KpiCard'
 import ChartCard, { CHART_COLORS, AXIS_TICK, DonutChart } from '../../components/reports/ChartCard'
 import ReportTable, { ReportBadge } from '../../components/reports/ReportTable'
-import { listOrdersByPoDate, listFgTransactionsUpTo } from '../../data/queries/reports'
+import { listOrdersByPoDate, listFgTransactionsUpTo, getPoDateBounds } from '../../data/queries/reports'
 import { listProductionOrders } from '../../data/queries/customerOrders'
 import { listCustomers } from '../../data/queries/customers'
 import { listProducts } from '../../data/queries/products'
 import { displayDate } from '../../utils/reportPeriods'
-import { orderLines, poSummary, monthsBetween, monthlyPoVsDispatch } from '../../utils/reportOrders'
+import { todayISO } from '../../utils/dates'
+import { orderLines, poSummary, monthsBetween, monthlyPoVsDispatch, emptyPoMessage } from '../../utils/reportOrders'
 import Banner from '../../components/Banner'
 
 const STATUS_TONES = { Closed: 'green', Open: 'red' }
@@ -23,11 +24,13 @@ const STATUS_TONES = { Closed: 'green', Open: 'red' }
  * dispatched qty from FG Dispatch (up to To) and Closed/Open per line
  * (Closed = dispatched >= order qty); a PO is Closed only when all its lines
  * are. Monthly PO qty vs dispatched, open/closed donut by qty. View opens
- * Order Traceability for the PRD. Filter: Customer.
+ * Order Traceability for the PRD. Filter: Customer. Opens on This Financial
+ * Year; an empty period names the latest PO and offers "Show all POs"
+ * (earliest PO date -> today).
  */
 export default function CustomerOrderStatusScreen({ onOpenTraceability }) {
   const chartType = useChartType()
-  const r = useReportPeriod({ customerId: '' })
+  const r = useReportPeriod({ customerId: '' }, { defaultPeriod: 'thisFY' })
   const [orders, setOrders] = useState([])
   const [dispatches, setDispatches] = useState([])
   const [customers, setCustomers] = useState([])
@@ -73,6 +76,18 @@ export default function CustomerOrderStatusScreen({ onOpenTraceability }) {
       return { ...l, customer_name: customerName.get(l.customer_id) ?? l.customer_id, part_name: p?.part_name ?? '', drawing: p?.part_drawing_reference_number ?? '' }
     })
   }, [orders, dispatches, prdRows, r.applied.customerId, customerName, productBySerial])
+
+  const isEmpty = !loading && !error && lines.length === 0
+  const [bounds, setBounds] = useState(null)
+  useEffect(() => {
+    setBounds(null)
+    if (!isEmpty) return
+    let cancelled = false
+    getPoDateBounds({ customerId: r.applied.customerId })
+      .then((b) => !cancelled && setBounds(b))
+      .catch((e) => !cancelled && setError(e.message))
+    return () => { cancelled = true }
+  }, [isEmpty, r.applied])
 
   const po = useMemo(() => poSummary(lines), [lines])
   const totalQty = lines.reduce((a, l) => a + l.order_qty, 0)
@@ -130,6 +145,21 @@ export default function CustomerOrderStatusScreen({ onOpenTraceability }) {
           <KpiCard label="Open POs" value={formatQty(po.open)} sub={`PO Qty: ${formatQty(po.openQty)} Nos`} icon={BarChart3} tone="purple" loading={loading} />
           <KpiCard label="Closed POs" value={formatQty(po.closed)} sub={`PO Qty: ${formatQty(po.closedQty)} Nos`} icon={CircleCheck} tone="red" loading={loading} />
         </KpiCardRow>
+
+        {isEmpty && bounds && (
+          <div className="flex flex-wrap items-center gap-3 rounded-lg border border-[#D6E4F5] bg-white px-4 py-2 text-[13px] text-brandnavy">
+            <span>{emptyPoMessage(bounds.latest)}</span>
+            {bounds.earliest && (
+              <button
+                type="button"
+                onClick={() => r.setRangeAndSearch(bounds.earliest.po_date, todayISO())}
+                className="inline-flex items-center rounded border border-brandblue px-3 py-0.5 text-[12px] font-semibold text-brandblue hover:bg-brandsky/60"
+              >
+                Show all POs
+              </button>
+            )}
+          </div>
+        )}
 
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
           <div className="xl:col-span-2">

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { periodRange, previousRange, daysBetween, addDays, displayDate, shortDate } from './reportPeriods'
+import { PERIOD_PRESETS, fyStart, periodRange, previousRange, daysBetween, addDays, displayDate, shortDate } from './reportPeriods'
 
 const TODAY = new Date(2026, 9, 12) // 12 Oct 2026, local
 
@@ -16,6 +16,15 @@ describe('periodRange', () => {
     expect(periodRange('thisMonth', TODAY)).toEqual({ from: '2026-10-01', to: '2026-10-12' })
     expect(periodRange('lastMonth', TODAY)).toEqual({ from: '2026-09-01', to: '2026-09-30' })
     expect(periodRange('lastMonth', new Date(2026, 0, 5))).toEqual({ from: '2025-12-01', to: '2025-12-31' })
+  })
+  it('starts This Financial Year on 1 Apr (previous year for Jan-Mar)', () => {
+    expect(periodRange('thisFY', TODAY)).toEqual({ from: '2026-04-01', to: '2026-10-12' })
+    expect(periodRange('thisFY', new Date(2027, 1, 15))).toEqual({ from: '2026-04-01', to: '2027-02-15' })
+    expect(fyStart(new Date(2027, 2, 31))).toBe('2026-04-01')
+    expect(fyStart(new Date(2027, 3, 1))).toBe('2027-04-01')
+  })
+  it('lists This Financial Year after Last Month, before Custom Range', () => {
+    expect(PERIOD_PRESETS.map((p) => p.value).slice(-3)).toEqual(['lastMonth', 'thisFY', 'custom'])
   })
   it('returns null for custom', () => {
     expect(periodRange('custom', TODAY)).toBeNull()

@@ -102,6 +102,20 @@ export const listJobOrderStatusRows = ({ from, to }) =>
   fetchAll(() => supabase.from('job order status').select('*').gte('dispatch_date', from).lte('dispatch_date', to).order('dispatch_date').order('dc_no'))
 
 /** Customer order lines with PO date from..to. */
+/** Earliest and latest PO ({ po_number, po_date } or null) in "customer
+ * orders", for one customer when customerId is set. */
+export async function getPoDateBounds({ customerId } = {}) {
+  const edge = async (ascending) => {
+    let q = supabase.from('customer orders').select('po_number, po_date').not('po_date', 'is', null)
+    if (customerId) q = q.eq('customer_id', customerId)
+    const { data, error } = await q.order('po_date', { ascending }).limit(1)
+    if (error) throw error
+    return data?.[0] ?? null
+  }
+  const [earliest, latest] = await Promise.all([edge(true), edge(false)])
+  return { earliest, latest }
+}
+
 export const listOrdersByPoDate = ({ from, to }) =>
   fetchAll(() => supabase.from('customer orders').select('*').gte('po_date', from).lte('po_date', to).order('po_date').order('order_line_id'))
 

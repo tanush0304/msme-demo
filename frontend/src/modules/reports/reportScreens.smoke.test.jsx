@@ -77,6 +77,7 @@ let data = 'sample'
 const fn = (name) => vi.fn(async () => (data === 'sample' ? SAMPLE[name] ?? [] : []))
 vi.mock('../../data/queries/reports', () => Object.fromEntries(
   ['listProductionHours', 'listLoggedPrds', 'listProductionSetup', 'listWipTransactionsUpTo', 'listFgTransactionsUpTo', 'listFgMasterRows', 'listPartDrawingRefs', 'listRmTransactionsUpTo', 'listRmStockMasterRows', 'listOrdersByPoDate', 'listJobOrderStatusRows', 'listQualityInspections', 'listReadingsForLogs', 'listComplaintsForReport'].map((n) => [n, fn(n)])
+    .concat([['getPoDateBounds', vi.fn(async () => (data === 'sample' ? { earliest: { po_number: 'PO-1', po_date: T }, latest: { po_number: 'PO-1', po_date: T } } : { earliest: null, latest: null }))]])
 ))
 vi.mock('../../data/queries/machines', () => ({ listMachines: fn('listMachines') }))
 vi.mock('../../data/queries/shifts', () => ({ listShifts: fn('listShifts') }))

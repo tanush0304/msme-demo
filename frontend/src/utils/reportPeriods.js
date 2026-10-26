@@ -9,6 +9,7 @@ export const PERIOD_PRESETS = [
   { value: 'last30', label: 'Last 30 Days' },
   { value: 'thisMonth', label: 'This Month' },
   { value: 'lastMonth', label: 'Last Month' },
+  { value: 'thisFY', label: 'This Financial Year' },
   { value: 'custom', label: 'Custom Range' },
 ]
 
@@ -23,6 +24,13 @@ export function addDays(iso, days) {
   const d = parseISO(iso)
   d.setDate(d.getDate() + days)
   return formatLocalISODate(d)
+}
+
+/** 1 Apr starting the Indian financial year that contains `today` (a Date):
+ * Jan-Mar fall in the FY that began the previous April. */
+export function fyStart(today = new Date()) {
+  const year = today.getMonth() < 3 ? today.getFullYear() - 1 : today.getFullYear()
+  return formatLocalISODate(new Date(year, 3, 1))
 }
 
 /** { from, to } for a preset, relative to `today` (a Date). 'custom' -> null
@@ -47,6 +55,8 @@ export function periodRange(preset, today = new Date()) {
         from: formatLocalISODate(new Date(today.getFullYear(), today.getMonth() - 1, 1)),
         to: formatLocalISODate(new Date(today.getFullYear(), today.getMonth(), 0)),
       }
+    case 'thisFY':
+      return { from: fyStart(today), to: t }
     default:
       return null
   }
