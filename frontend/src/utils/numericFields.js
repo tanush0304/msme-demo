@@ -85,3 +85,53 @@ export const YES_NO_OPTIONS = [
   { value: 'true', label: 'Yes' },
   { value: 'false', label: 'No' },
 ]
+
+// ---------------------------------------------------------------------------
+// Input validation (checked before any DB call). Each returns a readable
+// message, or null when the value is fine.
+
+/** Standard limits. Quantities, hours and lead time must be > 0. */
+export const NUMBER_RULES = {
+  QTY: { integer: true, min: 0, minExclusive: true, max: 1000000 },
+  SHIFT_HOURS: { min: 0, minExclusive: true, max: 24 },
+  SETTING_TIME: { integer: true, min: 0, max: 1440 },
+  LEAD_TIME: { integer: true, min: 0, minExclusive: true, max: 365 },
+  NON_NEGATIVE: { min: 0, max: 1000000000 },
+  POSITIVE: { min: 0, minExclusive: true, max: 1000000000 },
+}
+
+const indian = (n) => Number(n).toLocaleString('en-IN')
+
+/**
+ * Validate a number typed into a form. Blank passes unless `required`.
+ * "1,000" and "abc" are refused (not silently parsed); surrounding spaces are fine.
+ */
+export function validateNumber(value, { label = 'Value', required = false, integer = false, min, minExclusive = false, max } = {}) {
+  if (isBlank(value)) return required ? `${label} is required.` : null
+  const text = String(value).trim()
+  if (!/^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/.test(text)) return `${label} must be a number (digits only, no commas).`
+  const n = Number(text)
+  if (!Number.isFinite(n)) return `${label} must be a number.`
+  if (integer && !Number.isInteger(n)) return `${label} must be a whole number.`
+  if (min !== undefined) {
+    if (minExclusive && n <= min) return `${label} must be greater than ${indian(min)}.`
+    if (!minExclusive && n < min) return `${label} can't be less than ${indian(min)}.`
+  }
+  if (max !== undefined && n > max) return `${label} can't be more than ${indian(max)}.`
+  return null
+}
+
+/**
+ * Indian mobile number: optional "+91" / "91" / leading "0", spaces and dashes
+ * allowed; must leave exactly 10 digits starting 6-9.
+ * Returns { value, error }: value is the cleaned 10 digits ('' when blank).
+ */
+export function validateMobile(raw, { label = 'Mobile Number', required = false } = {}) {
+  if (isBlank(raw)) return { value: '', error: required ? `${label} is required.` : null }
+  let s = String(raw).trim().replace(/[\s-]/g, '')
+  if (s.startsWith('+91')) s = s.slice(3)
+  else if (s.length === 12 && s.startsWith('91')) s = s.slice(2)
+  else if (s.length === 11 && s.startsWith('0')) s = s.slice(1)
+  if (!/^[6-9]\d{9}$/.test(s)) return { value: s, error: `${label} must be a 10-digit mobile number starting with 6-9.` }
+  return { value: s, error: null }
+}
