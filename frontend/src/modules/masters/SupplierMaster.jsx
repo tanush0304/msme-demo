@@ -69,7 +69,7 @@ const SECTIONS = [
       },
       { key: 'tds_applicable', label: 'TDS Applicable', type: 'select', options: YES_NO_OPTIONS },
       { key: 'payment_terms', label: 'Payment Terms', type: 'addNew', options: MASTER_PAYMENT_TERMS },
-      { key: 'credit_period', label: 'Credit Period' },
+      { key: 'credit_period', label: 'Credit Period', type: 'addNew', options: MASTER_PAYMENT_TERMS },
       { key: 'bank_account_no', label: 'Bank Account No' },
       { key: 'bank_name', label: 'Bank Name' },
       { key: 'ifsc_code', label: 'IFSC Code' },

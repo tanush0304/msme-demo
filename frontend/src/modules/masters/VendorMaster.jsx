@@ -316,7 +316,12 @@ export default function VendorMaster() {
               />
             </Field>
             <Field label="Credit Period">
-              <TextInput value={form.credit_period} onChange={handleField('credit_period')} disabled={readOnly} />
+              <SelectWithAddNew
+                value={form.credit_period}
+                onChange={handleField('credit_period')}
+                disabled={readOnly}
+                options={mergeOptions(MASTER_PAYMENT_TERMS, records.map((r) => r.credit_period))}
+              />
             </Field>
             <Field label="Bank Account No">
               <TextInput value={form.bank_account_no} onChange={handleField('bank_account_no')} disabled={readOnly} />
