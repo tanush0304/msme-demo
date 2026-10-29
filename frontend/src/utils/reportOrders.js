@@ -128,6 +128,22 @@ export function jobOrderRows(rows, today) {
 
 /** Counts and % per status; "closed" = Received + Closed Short, "pending" =
  * DCs still out (Sent + Partially Received), overdue = open and late. */
+/** Job Order Status report's Status filter: '' = all; 'Overdue' = the
+ * overdue flag (any open status); otherwise the stored status ('Closed Short'
+ * is shown as "Partially Received (Closed)"). */
+export const DC_STATUS_FILTER_OPTIONS = [
+  { value: 'Sent', label: 'Sent' },
+  { value: 'Partially Received', label: 'Partially Received' },
+  { value: 'Received', label: 'Received' },
+  { value: 'Closed Short', label: 'Partially Received (Closed)' },
+  { value: 'Overdue', label: 'Overdue' },
+]
+
+export function filterByDcStatus(rows, status) {
+  if (!status) return rows
+  return status === 'Overdue' ? rows.filter((r) => r.overdue) : rows.filter((r) => r.status === status)
+}
+
 export function jobOrderCounts(rows) {
   const total = rows.length
   const count = (s) => rows.filter((r) => r.status === s).length
