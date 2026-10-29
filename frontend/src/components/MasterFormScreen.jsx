@@ -9,6 +9,7 @@ import { exportToCsv, exportToPdf } from '../utils/exportUtils'
 import { withTypedFields, typedKeysFromFields, validateMobile, validateNumber } from '../utils/numericFields'
 import { trimTextFields, requiredMissing, codeTooLong, duplicateCodeError } from '../utils/masterValidation'
 import Banner from './Banner'
+import { FieldErrorProvider, useFieldError } from './FieldError'
 import { useDeleteConfirm, labelOf } from './ConfirmDialog'
 
 // A section's width reflects how much content it holds, not a fixed column
@@ -59,6 +60,7 @@ export default function MasterFormScreen({
   const [mode, setMode] = useState('new') // 'new' | 'edit' | 'view'
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
+  const fieldError = useFieldError(saveError, setSaveError)
 
   useEffect(() => {
     setForm(emptyForm)
@@ -111,21 +113,21 @@ export default function MasterFormScreen({
   function validate(fields) {
     const cleaned = trimTextFields(form)
     const missing = requiredMissing(fields, cleaned)
-    if (missing) return { error: `${missing.label} is required.` }
+    if (missing) return { error: `${missing.label} is required.`, field: missing.key }
     const pkLabel = fields.find((f) => f.key === pkField)?.label ?? 'Code'
     if (mode === 'new') {
       const err = codeTooLong(cleaned[pkField], pkLabel) ?? duplicateCodeError(cleaned[pkField], records.map((r) => r[pkField]))
-      if (err) return { error: err }
+      if (err) return { error: err, field: pkField }
     }
     for (const f of fields) {
       if (f.mobile) {
         const { value, error } = validateMobile(cleaned[f.key], { label: f.label, required: f.required })
-        if (error) return { error }
+        if (error) return { error, field: f.key }
         cleaned[f.key] = value
       }
       if (f.number) {
         const error = validateNumber(cleaned[f.key], { label: f.label, required: f.required, ...f.number })
-        if (error) return { error }
+        if (error) return { error, field: f.key }
       }
     }
     return { cleaned }
@@ -133,9 +135,9 @@ export default function MasterFormScreen({
 
   async function handleSave() {
     const fields = sections.flatMap((s) => s.fields)
-    const { error, cleaned } = validate(fields)
+    const { error, field, cleaned } = validate(fields)
     if (error) {
-      setSaveError(error)
+      fieldError.fail(field, error)
       return
     }
     setForm(cleaned)
@@ -194,6 +196,7 @@ export default function MasterFormScreen({
   const pkLocked = mode !== 'new'
 
   return (
+    <FieldErrorProvider value={fieldError}>
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       {del.dialog}
       <PageHeader title={title} subtitle={subtitle} />
@@ -223,7 +226,7 @@ export default function MasterFormScreen({
               columns={section.columns ?? 2}
             >
               {section.fields.map((f) => (
-                <Field key={f.key} label={f.label} required={f.required} width={f.width ?? (f.colSpan ? 'long' : 'medium')} className={f.fullWidth ? 'basis-full' : ''}>
+                <Field key={f.key} name={f.key} label={f.label} required={f.required} width={f.width ?? (f.colSpan ? 'long' : 'medium')} className={f.fullWidth ? 'basis-full' : ''}>
                   {f.type === 'select' ? (
                     <SelectInput
                       value={form[f.key] ?? ''}
@@ -274,5 +277,6 @@ export default function MasterFormScreen({
         />
       </div>
     </div>
+    </FieldErrorProvider>
   )
 }

@@ -73,7 +73,7 @@ export const NAV_ITEMS = [
     label: 'Maintenance',
     subItems: [
       { key: 'checklist', label: 'Checklist Entry' },
-      { key: 'plan', label: 'Planning' },
+      { key: 'plan', label: 'Preventive Maintenance' },
     ],
   },
   {

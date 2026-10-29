@@ -50,7 +50,8 @@ export function validateSplit(rows, remaining, batchSize, partSerialNumber = '')
   if (!rows.some((r) => r.plan)) errors.push('Tick at least one batch to plan now.')
   const size = num(batchSize)
   const tooLarge = batchTooLargeMessage(partSerialNumber, size)
-  const rowErrors = rows.map((r) => (size > 0 && num(r.qty) > size ? tooLarge : null))
+  // Per row, for the red qty cell: not > 0, or over the master batch size.
+  const rowErrors = rows.map((r) => (!(num(r.qty) > 0) ? 'Every batch qty must be greater than 0.' : size > 0 && num(r.qty) > size ? tooLarge : null))
   if (rowErrors.some(Boolean)) errors.push(tooLarge)
   const planned = rows.filter((r) => r.plan).map((r) => num(r.qty))
   return { errors, rowErrors, total, planned, plannedTotal: planned.reduce((a, b) => a + b, 0) }

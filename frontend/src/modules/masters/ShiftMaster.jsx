@@ -213,7 +213,7 @@ export default function ShiftMaster() {
       <div className="flex-1 overflow-y-auto min-h-0 p-2 space-y-1.5 bg-page">
         <Banner tone="error" message={saveError} onClose={() => setSaveError(null)} />
         {!saveError && <Banner tone="error" message={computed.error} />}
-        <Banner tone="warning" message={computed.warning} />
+        <Banner tone="warning" message={computed.warning} inline />
         {computed.message && (
           <div className="bg-gray-100 border border-gray-200 text-gray-600 text-sm px-4 py-2 rounded">
             {computed.message}
@@ -242,7 +242,7 @@ export default function ShiftMaster() {
           <Field label="End Time" width="medium">
             <TimeInput12 value={form.end_time} onChange={handleField('end_time')} disabled={readOnly} />
           </Field>
-          <Field label="Lunch Break Duration" width="short">
+          <Field label="Break Time (min)" width="short">
             <TextInput
               value={form.lunch_break_duration}
               onChange={handleField('lunch_break_duration')}

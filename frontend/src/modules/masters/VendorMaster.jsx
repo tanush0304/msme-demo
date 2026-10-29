@@ -14,6 +14,7 @@ import { listVendors, createVendor, updateVendor, deleteVendor } from '../../dat
 import { listJobWorkTypes, createJobWorkType } from '../../data/queries/jobWorkTypes'
 import { listJobWorkTypesForVendor, setVendorJobWorkTypes } from '../../data/queries/vendorJobWorkTypes'
 import Banner from '../../components/Banner'
+import { FieldErrorProvider, useFieldError } from '../../components/FieldError'
 import { useDeleteConfirm, labelOf } from '../../components/ConfirmDialog'
 
 // Job work master IS a real, shared table (unlike Machine Master's hardcoded
@@ -70,6 +71,7 @@ export default function VendorMaster() {
   const [mode, setMode] = useState('new')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
+  const fieldError = useFieldError(saveError, setSaveError)
 
   async function refresh() {
     setLoading(true)
@@ -128,14 +130,14 @@ export default function VendorMaster() {
   }
 
   async function handleSave() {
-    const { error, cleaned } = checkMaster({
+    const { error, field, cleaned } = checkMaster({
       form, mode, records, codeKey: 'vendor_id', codeLabel: 'Vendor ID',
       required: [{ key: 'vendor_id' }, { key: 'vendor_name' }],
       requiredMessage: 'Vendor ID and Vendor Name are required.',
       mobiles: [{ key: 'mobile_no', label: 'Mobile Number' }],
     })
     if (error) {
-      setSaveError(error)
+      fieldError.fail(field, error)
       return
     }
     const vendorRow = mode === 'edit' ? { ...cleaned, vendor_id: form.vendor_id } : cleaned
@@ -213,6 +215,7 @@ export default function VendorMaster() {
   const idLocked = mode !== 'new'
 
   return (
+    <FieldErrorProvider value={fieldError}>
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       {del.dialog}
       <PageHeader title="Vendor Master" subtitle="Manage Vendor Information  |  Outsourcing Partners" />
@@ -235,13 +238,13 @@ export default function VendorMaster() {
         <div className="grid grid-cols-1 items-stretch gap-3 lg:grid-cols-6 [&>div>section]:h-full">
           <div className="lg:col-span-2">
           <FormSection icon={TruckIcon} title="1. Vendor Details" subtitle="Core vendor identity" columns={2}>
-            <Field label="Vendor ID" required>
+            <Field name="vendor_id" label="Vendor ID" required>
               <TextInput value={form.vendor_id} onChange={handleField('vendor_id')} disabled={idLocked} />
             </Field>
-            <Field label="Vendor Name" required>
+            <Field name="vendor_name" label="Vendor Name" required>
               <TextInput value={form.vendor_name} onChange={handleField('vendor_name')} disabled={readOnly} />
             </Field>
-            <Field label="Address" width="long">
+            <Field name="vendor_address" label="Address" width="long">
               <TextInput value={form.vendor_address} onChange={handleField('vendor_address')} disabled={readOnly} />
             </Field>
           </FormSection>
@@ -249,17 +252,17 @@ export default function VendorMaster() {
 
           <div className="lg:col-span-2">
           <FormSection icon={Phone} title="2. Contact Information" subtitle="Communication details">
-            <Field label="Contact Person Name">
+            <Field name="contact_person_name" label="Contact Person Name">
               <TextInput
                 value={form.contact_person_name}
                 onChange={handleField('contact_person_name')}
                 disabled={readOnly}
               />
             </Field>
-            <Field label="Mobile Number">
+            <Field name="mobile_no" label="Mobile Number">
               <TextInput value={form.mobile_no} onChange={handleField('mobile_no')} disabled={readOnly} />
             </Field>
-            <Field label="Email Address">
+            <Field name="email_id" label="Email Address">
               <TextInput type="email" value={form.email_id} onChange={handleField('email_id')} disabled={readOnly} />
             </Field>
           </FormSection>
@@ -282,16 +285,16 @@ export default function VendorMaster() {
 
           <div className="lg:col-span-6">
           <FormSection icon={Landmark} title="4. Statutory & Commercial Details" subtitle="Tax IDs and payment terms" columns={2}>
-            <Field label="GSTIN No">
+            <Field name="gstin_no" label="GSTIN No">
               <TextInput value={form.gstin_no} onChange={handleField('gstin_no')} disabled={readOnly} />
             </Field>
-            <Field label="PAN No">
+            <Field name="pan_no" label="PAN No">
               <TextInput value={form.pan_no} onChange={handleField('pan_no')} disabled={readOnly} />
             </Field>
-            <Field label="MSME / Udyam No">
+            <Field name="udyam_msme_no" label="MSME / Udyam No">
               <TextInput value={form.udyam_msme_no} onChange={handleField('udyam_msme_no')} disabled={readOnly} />
             </Field>
-            <Field label="GST Category">
+            <Field name="gst_category" label="GST Category">
               <SelectInput
                 value={form.gst_category}
                 onChange={handleField('gst_category')}
@@ -299,7 +302,7 @@ export default function VendorMaster() {
                 options={['Registered', 'Unregistered', 'Composition']}
               />
             </Field>
-            <Field label="TDS Applicable">
+            <Field name="tds_applicable" label="TDS Applicable">
               <SelectInput
                 value={form.tds_applicable}
                 onChange={handleField('tds_applicable')}
@@ -307,7 +310,7 @@ export default function VendorMaster() {
                 options={YES_NO_OPTIONS}
               />
             </Field>
-            <Field label="Payment Terms">
+            <Field name="payment_terms" label="Payment Terms">
               <SelectWithAddNew
                 value={form.payment_terms}
                 onChange={handleField('payment_terms')}
@@ -315,7 +318,7 @@ export default function VendorMaster() {
                 options={mergeOptions(MASTER_PAYMENT_TERMS, records.map((r) => r.payment_terms))}
               />
             </Field>
-            <Field label="Credit Period">
+            <Field name="credit_period" label="Credit Period">
               <SelectWithAddNew
                 value={form.credit_period}
                 onChange={handleField('credit_period')}
@@ -323,13 +326,13 @@ export default function VendorMaster() {
                 options={mergeOptions(MASTER_PAYMENT_TERMS, records.map((r) => r.credit_period))}
               />
             </Field>
-            <Field label="Bank Account No">
+            <Field name="bank_account_no" label="Bank Account No">
               <TextInput value={form.bank_account_no} onChange={handleField('bank_account_no')} disabled={readOnly} />
             </Field>
-            <Field label="Bank Name">
+            <Field name="bank_name" label="Bank Name">
               <TextInput value={form.bank_name} onChange={handleField('bank_name')} disabled={readOnly} />
             </Field>
-            <Field label="IFSC Code">
+            <Field name="ifsc_code" label="IFSC Code">
               <TextInput value={form.ifsc_code} onChange={handleField('ifsc_code')} disabled={readOnly} />
             </Field>
           </FormSection>
@@ -350,5 +353,6 @@ export default function VendorMaster() {
         />
       </div>
     </div>
+    </FieldErrorProvider>
   )
 }

@@ -141,7 +141,7 @@ export default function ComplaintInvestigationScreen({ role, initialComplaintNo 
         {!error && <Banner tone="success" message={message} onClose={() => setMessage('')} />}
 
         {selected?.status === 'Closed' && !isSupervisor(role) && (
-          <Banner tone="warning" message="This complaint is closed. Only a supervisor or admin can change it." />
+          <Banner tone="warning" message="This complaint is closed. Only a supervisor or admin can change it." inline />
         )}
 
         <ComplaintRegistrationSections

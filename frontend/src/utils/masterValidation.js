@@ -46,18 +46,18 @@ export function duplicateCodeError(code, existingCodes) {
 export function checkMaster({ form, mode, records = [], codeKey, codeLabel = 'Code', required = [], requiredMessage, numbers = [], mobiles = [] }) {
   const cleaned = trimTextFields(form)
   const missing = required.find((f) => String(cleaned[f.key] ?? '') === '')
-  if (missing) return { error: requiredMessage ?? `${missing.label} is required.` }
+  if (missing) return { error: requiredMessage ?? `${missing.label} is required.`, field: missing.key }
   if (codeKey && mode === 'new') {
     const err = codeTooLong(cleaned[codeKey], codeLabel) ?? duplicateCodeError(cleaned[codeKey], records.map((r) => r[codeKey]))
-    if (err) return { error: err }
+    if (err) return { error: err, field: codeKey }
   }
   for (const { key, label, rule } of numbers) {
     const error = validateNumber(cleaned[key], { label, ...rule })
-    if (error) return { error }
+    if (error) return { error, field: key }
   }
   for (const { key, label, required: req } of mobiles) {
     const { value, error } = validateMobile(cleaned[key], { label, required: req })
-    if (error) return { error }
+    if (error) return { error, field: key }
     cleaned[key] = value
   }
   return { cleaned }

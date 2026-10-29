@@ -21,7 +21,9 @@ import {
   listMaintenanceLogItems,
   updateMaintenanceLog,
   updateMaintenanceLogItem,
+  listMaintenanceLogsForShift,
 } from '../../data/queries/maintenanceLogs'
+import { DAILY, sameFrequency, itemsForType, noItemsMessage, conditionFromTick, isTicked, findLogFor } from '../../utils/dailyChecklist'
 import { canEditStock } from '../../utils/stockEdit'
 import { useAppUsers, withEditedLabels, EDITED_COLUMN } from '../../components/StockEditPanel'
 import Banner from '../../components/Banner'
@@ -103,6 +105,17 @@ export default function ChecklistEntryScreen({ role }) {
     setStarting(true)
     setError(null)
     try {
+      // A Daily checklist is one per machine + date + shift: open the
+      // existing one (with its saved items) instead of a duplicate.
+      if (sameFrequency(maintenanceType, DAILY)) {
+        const existing = findLogFor(await listMaintenanceLogsForShift(machineId, logDate, shiftCode), { machineId, date: logDate, shiftCode, type: DAILY })
+        if (existing) {
+          const saved = await listMaintenanceLogItems(existing.id)
+          setItemResults(Object.fromEntries(saved.map((it) => [it.checklist_item_id, { ticked: isTicked(it.condition), observation: it.observation ?? '', action_taken: it.action_taken ?? '', saved: true }])))
+          setActiveLog(existing)
+          return
+        }
+      }
       const log = await createMaintenanceLog({
         machine_id: machineId,
         employee_id: employeeId,
@@ -123,25 +136,25 @@ export default function ChecklistEntryScreen({ role }) {
     setItemResults((r) => ({ ...r, [itemId]: { ...r[itemId], [field]: value } }))
   }
 
-  // Toolbar Save: starts the visit first; once started, saves every checklist
-  // row that has a Condition and is not saved yet (one insert per row).
+  // Toolbar Save: starts the visit first; once started, saves every shown
+  // checklist row not saved yet (ticked = OK, unticked = Not OK; one insert
+  // per row).
   async function handleSave() {
     if (!activeLog) return handleStartVisit()
-    const pending = checklistItems.filter((item) => !itemResults[item.id]?.saved)
-    const ready = pending.filter((item) => itemResults[item.id]?.condition)
+    const ready = shownItems.filter((item) => !itemResults[item.id]?.saved)
     if (ready.length === 0) {
-      setError(pending.length === 0 ? 'Every checklist item is already saved.' : 'Pick OK / Not OK on at least one checklist item before saving.')
+      setError('Every checklist item is already saved.')
       return
     }
     setSavingItems(true)
     setError(null)
     try {
       for (const item of ready) {
-        const result = itemResults[item.id]
+        const result = itemResults[item.id] ?? {}
         await addMaintenanceLogItem({
           maintenance_log_id: activeLog.id,
           checklist_item_id: item.id,
-          condition: result.condition,
+          condition: conditionFromTick(!!result.ticked),
           observation: result.observation || null,
           action_taken: result.action_taken || null,
         })
@@ -187,6 +200,9 @@ export default function ChecklistEntryScreen({ role }) {
     return null
   }
 
+  // Only the machine's items whose frequency matches the Type of Maintenance.
+  const shownItems = machineId && maintenanceType ? itemsForType(checklistItems, maintenanceType) : []
+  const machineRow = machines.find((m) => m.machine_id === machineId)
   const maintenanceTypeOptions = mergeOptions(MAINTENANCE_TYPES, recentLogs.map((l) => l.maintenance_type))
   const filteredRecentLogs = withEditedLabels(recentLogs, appUsers).filter((l) => {
     if (!search) return true
@@ -242,33 +258,34 @@ export default function ChecklistEntryScreen({ role }) {
               options={maintenanceTypeOptions}
             />
           </Field>
-          {machineId && checklistItems.length === 0 && (
-            <p className="text-sm text-gray-400 sm:col-span-4">No checklist items defined for this machine yet.</p>
+          {machineId && maintenanceType && shownItems.length === 0 && (
+            <p className="text-sm text-gray-400 sm:col-span-4">{noItemsMessage(maintenanceType, machineRow ? machineOptionLabel(machineRow) : machineId)}</p>
           )}
         </FormSection>
 
-        {activeLog && checklistItems.length > 0 && (
+        {activeLog && shownItems.length > 0 && (
           <div className="bg-white border border-gray-200 rounded-md overflow-hidden">
             <div className="bg-brandsky border-b border-gray-200 px-4 py-2.5 flex items-center gap-2">
               <ClipboardCheck size={16} className="text-brandnavy" />
               <h2 className="text-sm font-semibold text-brandnavy">2. Checklist Items</h2>
             </div>
             <div className="divide-y divide-gray-100">
-              {checklistItems.map((item) => {
+              {shownItems.map((item) => {
                 const result = itemResults[item.id] ?? {}
                 return (
                   <div key={item.id} className="grid grid-cols-1 sm:grid-cols-5 gap-2 p-4 items-end">
                     <div className="sm:col-span-1">
                       <p className="text-sm font-medium text-gray-700">{item.checklist_item}</p>
                     </div>
-                    <Field label="Condition">
-                      <SelectInput
-                        value={result.condition ?? ''}
-                        onChange={(e) => updateItemResult(item.id, 'condition', e.target.value)}
+                    <label className="flex items-center gap-2 pb-2 text-sm text-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={!!result.ticked}
+                        onChange={(e) => updateItemResult(item.id, 'ticked', e.target.checked)}
                         disabled={result.saved}
-                        options={['OK', 'Not OK']}
                       />
-                    </Field>
+                      OK
+                    </label>
                     <Field label="Observation">
                       <TextInput
                         value={result.observation ?? ''}
@@ -391,9 +408,10 @@ function VisitEditPanel({ log, machines, employees, shifts, maintenanceTypeOptio
           items.map((item) => (
             <div key={item.id} className="grid grid-cols-1 sm:grid-cols-4 gap-2 p-3 items-end">
               <p className="text-sm font-medium text-gray-700">{names.get(item.checklist_item_id) ?? `Item ${item.checklist_item_id}`}</p>
-              <Field label="Condition">
-                <SelectInput value={item.condition} onChange={(e) => setItem(item.id, 'condition', e.target.value)} options={['OK', 'Not OK']} />
-              </Field>
+              <label className="flex items-center gap-2 pb-2 text-sm text-gray-700">
+                <input type="checkbox" checked={isTicked(item.condition)} onChange={(e) => setItem(item.id, 'condition', conditionFromTick(e.target.checked))} />
+                OK
+              </label>
               <Field label="Observation">
                 <TextInput value={item.observation} onChange={(e) => setItem(item.id, 'observation', e.target.value)} />
               </Field>

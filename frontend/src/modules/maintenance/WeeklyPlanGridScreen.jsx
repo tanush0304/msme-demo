@@ -131,11 +131,11 @@ export default function WeeklyPlanGridScreen() {
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       {del.dialog}
-      <PageHeader title="Maintenance Planning" subtitle="Click a Cell to Schedule  |  Green = Completed, Amber = Planned, Outline = Next Due" />
+      <PageHeader title="Preventive Maintenance" subtitle="Click a Cell to Schedule  |  Green = Completed, Amber = Planned, Outline = Next Due" />
       <ActionToolbar
         showCrudButtons={false}
         onExportExcel={() => exportToCsv(exportColumns, exportRows, 'maintenance_planning.csv')}
-        onExportPdf={() => exportToPdf(exportColumns, exportRows, 'Maintenance Planning', 'maintenance_planning')}
+        onExportPdf={() => exportToPdf(exportColumns, exportRows, 'Preventive Maintenance', 'preventive_maintenance')}
       />
       <div className="flex-1 overflow-auto p-6 bg-page">
         <Banner tone="error" message={error} onClose={() => setError(null)} className="mb-4" />

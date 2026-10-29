@@ -53,6 +53,9 @@ import { validateNumber, NUMBER_RULES } from '../../utils/numericFields'
 import StageStartGuard from '../../components/StageStartGuard'
 import { pickDefaultStage, defaultMachineForStage, earlierIncompleteStage, canStartStage, runningBanner } from '../../utils/stageStartGuard'
 import Banner from '../../components/Banner'
+import { FieldErrorProvider, useFieldError } from '../../components/FieldError'
+import DailyChecklistGate from '../../components/DailyChecklistGate'
+import { gateApplies, gateAllowsStart } from '../../utils/dailyChecklist'
 
 export default function ProductionDataEntryScreen({ role }) {
   const [employees, setEmployees] = useState([])
@@ -67,6 +70,7 @@ export default function ProductionDataEntryScreen({ role }) {
   const [pendingStages, setPendingStages] = useState([]) // every Pending/Internal stage, any PRD -- for the PRD dropdown
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const fieldError = useFieldError(error, setError)
 
   const [employeeId, setEmployeeId] = useState('')
   const [shiftCode, setShiftCode] = useState('')
@@ -95,6 +99,8 @@ export default function ProductionDataEntryScreen({ role }) {
   const [completing, setCompleting] = useState(false)
 
   const [starting, setStarting] = useState(false)
+  // Daily checklist gate status for machine + today + shift (null = loading).
+  const [checklistStatus, setChecklistStatus] = useState(null)
   const [activeLog, setActiveLog] = useState(null)
   // Shift verification (migration 028) is per log + date + shift and is
   // done on the Shift Verification screen. The grid's shift is locked once
@@ -392,17 +398,19 @@ export default function ProductionDataEntryScreen({ role }) {
 
   async function handleStart() {
     if (!canStartStage({ available: plannedQty, earlierIncomplete, confirmed: confirmEarlier })) return
+    if (checklistBlocksStart) return
     if (substituteError) {
-      setError(substituteError)
+      fieldError.fail(substituteReason === 'Other' ? 'substitute_note' : 'substitute_reason', substituteError)
       return
     }
-    if (!machineId || !prdNo || !resolvedStage || !employeeId || !shiftCode) {
-      setError('Machine, PRD, Employee and Shift are all required to start.')
+    const missing = !employeeId ? 'employee' : !prdNo ? 'prd' : !machineId || !resolvedStage ? 'machine' : !shiftCode ? 'shift' : null
+    if (missing) {
+      fieldError.fail(missing, 'Machine, PRD, Employee and Shift are all required to start.')
       return
     }
     const settingError = validateNumber(settingTimeMin, { label: 'Setting Time', ...NUMBER_RULES.SETTING_TIME })
     if (settingError) {
-      setError(settingError)
+      fieldError.fail('setting_time', settingError)
       return
     }
     const settingTime = String(settingTimeMin).trim() === '' ? null : Number(settingTimeMin)
@@ -577,6 +585,10 @@ export default function ProductionDataEntryScreen({ role }) {
   const actualMachineText = (actualId) =>
     `${machineLabels[actualId] ?? actualId}${plannedMachineId && plannedMachineId !== actualId ? ` (planned ${plannedMachineId})` : ''}`
   const noEligibleMachine = prdNo && !resolving && eligibleMachineIds.length === 0
+  // New logs on an Internal stage wait for today's Daily checklist on the
+  // chosen machine (planned or substitute) + shift; resumed logs don't.
+  const checklistGated = gateApplies({ stage: resolvedStage, activeLog, machineId, shiftCode })
+  const checklistBlocksStart = checklistGated && !gateAllowsStart(checklistStatus)
   const entryShift = resolveEntryShiftTimes({ dropdownShiftCode: shiftCode, shifts })
 
   // Footer totals update live while hour rows are typed: every saved hour of
@@ -586,6 +598,7 @@ export default function ProductionDataEntryScreen({ role }) {
     : null
 
   return (
+    <FieldErrorProvider value={fieldError}>
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader
         title={subItemLabel('production', 'production-data-entry')}
@@ -598,10 +611,10 @@ export default function ProductionDataEntryScreen({ role }) {
         <Banner tone="error" message={error} onClose={() => setError(null)} />
 
         <FormSection icon={Factory} title="1. Select Employee, Order & Machine" subtitle="Pick who, then order and machine" columns={3}>
-          <Field label="Employee" required>
+          <Field name="employee" label="Employee" required>
             <EmployeeSelect employees={employees} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} disabled={loading || restoring} />
           </Field>
-          <Field label="Production Order (PRD No)" required>
+          <Field name="prd" label="Production Order (PRD No)" required>
             <SearchableSelect
               value={prdNo}
               onChange={handlePrdChange}
@@ -618,7 +631,7 @@ export default function ProductionDataEntryScreen({ role }) {
           <Field label="Part Drawing Number">
             <AutoFillBox value={part.part_drawing_reference_number} />
           </Field>
-          <Field label="Machine" required>
+          <Field name="machine" label="Machine" required>
             <SearchableSelect
               value={machineId}
               onChange={handleMachineChange}
@@ -693,7 +706,7 @@ export default function ProductionDataEntryScreen({ role }) {
                 disabled={!!activeLog}
               />
             </Field>
-            <Field label="Setting Time (min)">
+            <Field name="setting_time" label="Setting Time (min)">
               <TextInput
                 type="number"
                 min="0"
@@ -708,7 +721,7 @@ export default function ProductionDataEntryScreen({ role }) {
                 No Cycle Time Master entry for this part + process -- cycle time will be left blank on the report.
               </p>
             )}
-            <Field label="Shift" required>
+            <Field name="shift" label="Shift" required>
               <SelectInput
                 value={shiftCode}
                 onChange={(e) => setShiftCode(e.target.value)}
@@ -726,15 +739,26 @@ export default function ProductionDataEntryScreen({ role }) {
                 <p className="sm:col-span-3 text-[13px] font-medium text-amber-800">
                   Substitute machine: {machineLabels[machineId] ?? machineId} instead of planned {machineLabels[resolvedStage.machine_id] ?? resolvedStage.machine_id} — reason required.
                 </p>
-                <Field label="Substitute Reason" required>
+                <Field name="substitute_reason" label="Substitute Reason" required>
                   <SelectInput value={substituteReason} onChange={(e) => setSubstituteReason(e.target.value)} options={SUBSTITUTE_REASONS} />
                 </Field>
                 {substituteReason === 'Other' && (
-                  <Field label="Reason (text)" required>
+                  <Field name="substitute_note" label="Reason (text)" required>
                     <TextInput value={substituteNote} onChange={(e) => setSubstituteNote(e.target.value)} />
                   </Field>
                 )}
               </div>
+            )}
+            {checklistGated && (
+              <DailyChecklistGate
+                key={`${machineId}|${shiftCode}`}
+                machineId={machineId}
+                machineLabel={machineLabels[machineId] ?? machineId}
+                shiftCode={shiftCode}
+                employeeId={employeeId}
+                employees={employees}
+                onStatusChange={setChecklistStatus}
+              />
             )}
             {!activeLog && (
               <StageStartGuard
@@ -749,7 +773,7 @@ export default function ProductionDataEntryScreen({ role }) {
             <div className="flex items-end">
               <button
                 onClick={handleStart}
-                disabled={starting || !!activeLog || !!substituteError || !canStartStage({ available: plannedQty, earlierIncomplete, confirmed: confirmEarlier })}
+                disabled={starting || !!activeLog || !!substituteError || checklistBlocksStart || !canStartStage({ available: plannedQty, earlierIncomplete, confirmed: confirmEarlier })}
                 className="bg-brandblue text-white rounded px-3 py-1.5 text-xs font-medium disabled:opacity-40 hover:bg-brandnavy"
               >
                 {activeLog ? 'Started' : starting ? 'Starting...' : 'Start Production'}
@@ -831,5 +855,6 @@ export default function ProductionDataEntryScreen({ role }) {
         )}
       </div>
     </div>
+    </FieldErrorProvider>
   )
 }
