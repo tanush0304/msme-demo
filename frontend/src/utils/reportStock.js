@@ -155,3 +155,27 @@ export function rmMatchesFilters(rm, { supplier, rmType, uom, rmCode } = {}) {
   if (rmCode && rm.raw_material_code !== rmCode) return false
   return true
 }
+
+/**
+ * WIP Status chart state for one period (WIP has no master opening).
+ *   trend:        daily (or monthly above 62 days) { label, receipts, issues, balance }
+ *   balance:      total balance as of `to`
+ *   balanceEmpty: rows exist but nothing is left in stores (balance <= 0)
+ *   trendEmpty:   nothing moved in the period and no stock carried in
+ * `bucket(daily)` turns the daily points into chart points (trendBuckets).
+ */
+export function wipChartState(txns, { from, to, days, inType = 'Receipt', outType = 'Issue', bucket = (d) => d }) {
+  let opening = 0
+  let moved = false
+  let balance = 0
+  for (const t of txns) {
+    const d = t.transaction_date
+    const sign = t.transaction_type === inType ? 1 : t.transaction_type === outType ? -1 : 0
+    if (!sign || !d || d > to) continue
+    balance += sign * num(t.qty)
+    if (d < from) opening += sign * num(t.qty)
+    else if (num(t.qty) !== 0) moved = true
+  }
+  const trend = bucket(dailyMovement(txns.filter((t) => t.transaction_date && t.transaction_date <= to), { days, inType, outType }))
+  return { trend, balance, balanceEmpty: balance <= 0, trendEmpty: !moved && opening <= 0 }
+}

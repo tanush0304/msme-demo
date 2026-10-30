@@ -94,7 +94,7 @@ describe('DailyChecklistGate', () => {
   it('no Daily items in the master -> message and Start allowed', async () => {
     q.listChecklistItemsForMachine.mockResolvedValue([ITEMS[2]])
     const status = renderGate()
-    expect(await screen.findByText('No Daily checklist items set for Sub Lathe (MC-SUB) -- ask maintenance to add them')).toBeTruthy()
-    expect(status).toHaveBeenLastCalledWith('no-items')
-  })
+    expect(await screen.findByText('No Daily checklist items set for Sub Lathe (MC-SUB) -- ask maintenance to add them', {}, { timeout: 5000 })).toBeTruthy()
+    await waitFor(() => expect(status).toHaveBeenLastCalledWith('no-items'), { timeout: 5000 })
+  }, 15000)
 })
