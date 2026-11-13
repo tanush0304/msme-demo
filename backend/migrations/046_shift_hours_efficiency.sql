@@ -316,7 +316,7 @@ where exists (select 1 from public."production log hours" h where h.log_id = l.i
 order by l.id;
 
 -- ----------------------------------------------------------------- CHANGE
-begin;
+-- (demo copy: no begin/commit -- every statement stands alone and is re-runnable)
 
 -- 1. Per-hour setup -----------------------------------------------------------
 alter table public."production log hours"
@@ -760,7 +760,7 @@ grant execute on function public.hour_slot_minutes(text, integer) to authenticat
 grant execute on function public.fmt_hrs(numeric) to authenticated, service_role;
 grant execute on function public.guard_production_log_hours_shift_limit() to authenticated, service_role;
 
-commit;
+-- (end of CHANGE)
 
 notify pgrst, 'reload schema';
 

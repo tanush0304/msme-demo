@@ -28,6 +28,20 @@ export function defaultMachineForStage(stage, machineRows) {
   return forSeq[0] ?? ''
 }
 
+/** Hint next to Data Entry's (empty) Machine field: the next stage's
+ * planned machine (route card), never pre-selected. "" when no next stage;
+ * stage only when the planned machine isn't eligible. */
+export function plannedMachineHint(stage, plannedMachineLabel, stageText) {
+  if (!stage) return ''
+  return plannedMachineLabel ? `Planned: ${plannedMachineLabel} (${stageText}, next stage)` : `Next stage: ${stageText}`
+}
+
+/** Eligible machine ids with the planned one first (order only). */
+export function plannedFirst(ids, plannedId) {
+  if (!plannedId || !ids.includes(plannedId)) return ids
+  return [plannedId, ...ids.filter((id) => id !== plannedId)]
+}
+
 /** "Stage 20 – Rough Turning on CNC 1 (MC-004) · Available: 198" (no machine part on Manual Ops). */
 export function startSummary({ stage, machineLabel, available }) {
   if (!stage) return ''
@@ -66,4 +80,39 @@ export function canStartStage({ available, earlierIncomplete, confirmed }) {
 export function runningBanner({ stage, machineLabel }) {
   if (!stage) return ''
   return `Running: ${stageLabel(stage)}${machineLabel ? ` on ${machineLabel}` : ''}`
+}
+
+// ---------------------------------------------------------------- 2026-11-11
+// Mark Stage Complete: supervisor / admin only (047 guard); prompted, never
+// automatic. Trigger = pieces PROCESSED (incl. rejects / rework) >= target.
+
+export const canCompleteStageRole = (role) => role === 'supervisor' || role === 'admin'
+
+/** Processed output reached the stage target (target > 0). */
+export function stageReachedTarget(output, target) {
+  return Number(target) > 0 && Number(output) >= Number(target)
+}
+
+/** "Stage 2 – Turning reached 500 of 500 (accepted 488) -- mark it complete?" */
+export function completePromptText({ label, output, target, accepted }) {
+  return `${label} reached ${Number(output)} of ${Number(target)} (accepted ${Number(accepted)}) -- mark it complete?`
+}
+
+/**
+ * Route Card "Mark complete" (2026-11-13, supervisor / admin, 047 guards the DB).
+ * Returns 'button' | 'end-log-first' | null for one stage:
+ * Internal + Pending + output >= target; an open log on it -> 'end-log-first'
+ * (Data Entry completes those). Same target rule as Data Entry
+ * (computeStageUpstreamTargets).
+ */
+export function routeCardCompleteState({ role, stageType, stageStatus, output, target, hasOpenLog }) {
+  if (!canCompleteStageRole(role)) return null
+  if (stageType !== 'Internal' || stageStatus !== 'Pending') return null
+  if (!stageReachedTarget(output, target)) return null
+  return hasOpenLog ? 'end-log-first' : 'button'
+}
+
+/** Operator note instead of the button. */
+export function askSupervisorText({ label, output, target }) {
+  return `${label} reached ${Number(output)} of ${Number(target)} -- ask a supervisor to mark it complete.`
 }

@@ -29,7 +29,10 @@ import {
   updateProductionLogHours,
   listOpenLogsForUser,
   listAllOpenLogs,
+  shiftHours046Supported,
+  listOtherMachineShiftHours,
 } from '../../data/queries/productionLogs'
+import { withSettingTimeAsSetup } from '../../utils/shiftHoursLimit'
 import { listCycleTimesForPart } from '../../data/queries/cycleTimes'
 import { getCurrentUserId } from '../../data/queries/currentUser'
 import {
@@ -38,7 +41,7 @@ import {
   standardQtyPerHour,
 } from '../../utils/calculations'
 import { resolveEntryShiftTimes } from '../../utils/hourlySlots'
-import { computeLiveLogTotals } from '../../utils/productionReport'
+import { computeLiveLogTotals, logSettingMinutes, totalIdle } from '../../utils/productionReport'
 import { todayISO } from '../../utils/dates'
 import ShiftDateLine from '../../components/ShiftDateLine'
 import { stageLabel } from '../../utils/stageLabel'
@@ -51,7 +54,7 @@ import ShiftVerificationStatus, { CorrectingShiftBanner } from '../../components
 import { dbErrorMessage } from '../../utils/dbErrors'
 import { validateNumber, NUMBER_RULES } from '../../utils/numericFields'
 import StageStartGuard from '../../components/StageStartGuard'
-import { pickDefaultStage, defaultMachineForStage, earlierIncompleteStage, canStartStage, runningBanner } from '../../utils/stageStartGuard'
+import { pickDefaultStage, defaultMachineForStage, earlierIncompleteStage, canStartStage, runningBanner, plannedMachineHint, plannedFirst } from '../../utils/stageStartGuard'
 import Banner from '../../components/Banner'
 import OrderLineFields from '../../components/OrderLineFields'
 import { orderLineSuffix } from '../../utils/deliveryAddress'
@@ -89,7 +92,8 @@ export default function ProductionDataEntryScreen({ role }) {
   const [restoring, setRestoring] = useState(false)
   const [gate] = useState(createRequestGate)
   const [prdAllStages, setPrdAllStages] = useState([]) // every stage of the PRD (any type / status) -- earlier-stage check
-  const [nextStageMachineId, setNextStageMachineId] = useState('') // default pick, labelled "(next stage)"
+  const [nextStageMachineId, setNextStageMachineId] = useState('') // next stage's PLANNED machine: hint + listed first, never pre-selected
+  const [nextStage, setNextStage] = useState(null)
   const [confirmEarlier, setConfirmEarlier] = useState(false) // "I confirm" for an incomplete earlier stage
 
   const [machineId, setMachineId] = useState('')
@@ -113,6 +117,17 @@ export default function ProductionDataEntryScreen({ role }) {
   const [entryDate, setEntryDate] = useState(todayISO())
   const shiftCheck = useLogShiftVerifications({ logId: activeLog?.id, entryDate, shiftCode, role, appUsers })
   const [logHours, setLogHours] = useState([])
+  // 046: per-hour Setup + good-vs-target efficiency (off until 046 is run);
+  // shift-hours limit uses the other logs' hours on the same machine.
+  const [v046, setV046] = useState(false)
+  const [otherMachineHours, setOtherMachineHours] = useState([])
+  useEffect(() => {
+    let active = true
+    shiftHours046Supported().then((ok) => active && setV046(!!ok)).catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [])
   const [totals, setTotals] = useState(null)
   const [draftHourRows, setDraftHourRows] = useState([])
   const [savingHour, setSavingHour] = useState(false)
@@ -219,6 +234,7 @@ export default function ProductionDataEntryScreen({ role }) {
     setPrdNo(prd)
     setMachineId('')
     setNextStageMachineId('')
+    setNextStage(null)
     setNextStageSeq(null)
     setOptionsBySeq({})
     setPrdAllStages([])
@@ -276,10 +292,13 @@ export default function ProductionDataEntryScreen({ role }) {
         const candidates = stages.filter((s) => rows.some((r) => r.seq === s.seq))
         const next = pickDefaultStage(candidates, availability)
         const machine = defaultMachineForStage(next, rows)
-        if (next && machine) {
-          setNextStageMachineId(machine)
+        // Hint only (2026-11-11): the earliest pending stage + its PLANNED
+        // machine are shown next to the field and listed first, but the
+        // Machine field stays empty -- the operator must pick it.
+        if (next) {
+          setNextStage(next)
           setNextStageSeq(next.seq)
-          selectMachine(machine, { stages, rows, prd, preferStage: next })
+          setNextStageMachineId(machine && machine === next.machine_id ? machine : '')
         }
       }
       return true
@@ -405,6 +424,10 @@ export default function ProductionDataEntryScreen({ role }) {
       fieldError.fail(substituteReason === 'Other' ? 'substitute_note' : 'substitute_reason', substituteError)
       return
     }
+    if (prdNo && !machineId) {
+      fieldError.fail('machine', 'Select the Machine.')
+      return
+    }
     const missing = !employeeId ? 'employee' : !prdNo ? 'prd' : !machineId || !resolvedStage ? 'machine' : !shiftCode ? 'shift' : null
     if (missing) {
       fieldError.fail(missing, 'Machine, PRD, Employee and Shift are all required to start.')
@@ -472,7 +495,17 @@ export default function ProductionDataEntryScreen({ role }) {
     setSavingHour(true)
     setError(null)
     try {
-      const stamped = rows.map((r) => ({
+      // 046: Start's Setting Time goes into the first hour rows' Setup, once
+      // (only while no hour of the log has setup) -- counted once in reports.
+      const withSetup = v046
+        ? withSettingTimeAsSetup(rows, {
+            settingTimeMin: activeLog.setting_time_min,
+            logHasRowSetup: logHours.some((h) => h.setup_min != null),
+            shift: entryShiftRow,
+            otherIdle: (r) => totalIdle({ ...r, setup_min: null }) || 0,
+          })
+        : rows
+      const stamped = withSetup.map((r) => ({
         ...r,
         log_id: activeLog.id,
         log_date: entryDate,
@@ -592,11 +625,44 @@ export default function ProductionDataEntryScreen({ role }) {
   const checklistGated = gateApplies({ stage: resolvedStage, activeLog, machineId, shiftCode })
   const checklistBlocksStart = checklistGated && !gateAllowsStart(checklistStatus)
   const entryShift = resolveEntryShiftTimes({ dropdownShiftCode: shiftCode, shifts })
+  const entryShiftRow = {
+    shift_code: shiftCode,
+    start_time: entryShift.start_time,
+    end_time: entryShift.end_time,
+    lunch_break_duration: shifts.find((x) => x.shift_code === shiftCode)?.lunch_break_duration ?? '',
+  }
+  const canOvertime = role === 'supervisor' || role === 'admin'
+
+  // Other logs' hour rows on this machine for the grid's date + shift (046
+  // limit is per machine + date + shift). A failed read only drops them.
+  const otherHoursKey = activeLog ? `${activeLog.id}|${activeLog.machine_id}|${entryDate}|${shiftCode}|${logHours.length}` : ''
+  useEffect(() => {
+    if (!activeLog?.machine_id || !shiftCode) {
+      setOtherMachineHours([])
+      return undefined
+    }
+    let active = true
+    listOtherMachineShiftHours({ machineId: activeLog.machine_id, logDate: entryDate, shiftCode, excludeLogId: activeLog.id })
+      .then((rows) => active && setOtherMachineHours(rows))
+      .catch((err) => {
+        console.warn('Other logs on this machine not loaded', err)
+        if (active) setOtherMachineHours([])
+      })
+    return () => {
+      active = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [otherHoursKey])
 
   // Footer totals update live while hour rows are typed: every saved hour of
   // the log + unsaved rows (same rule as the "production log totals" view).
   const liveTotals = activeLog
-    ? computeLiveLogTotals({ savedHours: logHours, draftRows: draftHourRows, standardQtyPerHour: activeLog.standard_qty_per_hour })
+    ? computeLiveLogTotals({
+        savedHours: logHours,
+        draftRows: draftHourRows,
+        standardQtyPerHour: activeLog.standard_qty_per_hour,
+        goodVsTarget: v046 ? { shifts, draftShiftCode: shiftCode, cycleTimeMin: activeLog.cycle_time_min } : null,
+      })
     : null
 
   return (
@@ -646,11 +712,22 @@ export default function ProductionDataEntryScreen({ role }) {
               value={machineId}
               onChange={handleMachineChange}
               disabled={selectionLocked || !prdNo || eligibleMachineIds.length === 0}
-              options={eligibleMachineIds.map((id) => ({
+              options={plannedFirst(eligibleMachineIds, nextStageMachineId).map((id) => ({
                 value: id,
-                label: `${optionLabel(id)}${id === nextStageMachineId ? ' (next stage)' : ''}`,
+                label: `${optionLabel(id)}${id === nextStageMachineId ? ' (planned · next stage)' : ''}`,
               }))}
             />
+            {!activeLog && nextStage && (
+              <span className="mt-0.5 block text-[11px] text-gray-500" data-testid="planned-machine-hint">
+                {plannedMachineHint(nextStage, nextStageMachineId ? optionLabel(nextStageMachineId) : '', stageLabel(nextStage))}
+              </span>
+            )}
+            {/* Start (and the stage / cycle time section) only appears once a machine is picked. */}
+            {!activeLog && prdNo && !machineId && eligibleMachineIds.length > 0 && (
+              <span className="mt-0.5 block text-[11px] font-medium text-amber-700" data-testid="machine-required-note">
+                Select the machine to continue.
+              </span>
+            )}
           </Field>
           {stageChoicesForPrd.length > 1 && (
             <Field label="Stage" required>
@@ -812,15 +889,29 @@ export default function ProductionDataEntryScreen({ role }) {
                 onDraftRowsChange={setDraftHourRows}
                 showIdle
                 settingTimeMin={activeLog.setting_time_min}
+                withSetup={v046}
+                hoursLimit={{
+                  shift: entryShiftRow,
+                  otherRows: otherMachineHours,
+                  canOvertime,
+                  machineLabel: machineLabels[activeLog.machine_id] ?? activeLog.machine_id ?? '',
+                }}
               />
               {liveTotals && (
                 <div className="text-sm text-gray-600 flex flex-wrap gap-x-6 gap-y-1 pt-2 mt-2 border-t border-gray-100">
                   <span>Total Produced: <strong className="num-highlight">{liveTotals.total_produced}</strong></span>
                   <span>Total Rejected: <strong className="num-highlight">{liveTotals.total_rejected ?? 0}</strong></span>
                   <span>Total Rework: <strong className="num-highlight">{liveTotals.total_rework ?? 0}</strong></span>
-                  <span>Efficiency: <strong className="num-highlight">{liveTotals.efficiency_pct ?? '—'}%</strong></span>
+                  {v046 && (
+                    <>
+                      <span>Good Qty: <strong className="num-highlight">{liveTotals.total_good}</strong></span>
+                      <span>Target Qty: <strong className="num-highlight">{liveTotals.no_cycle_time ? 'No cycle time' : liveTotals.target_qty ?? '—'}</strong></span>
+                    </>
+                  )}
+                  <span>Efficiency: <strong className="num-highlight">{v046 && liveTotals.no_cycle_time ? 'No cycle time' : `${liveTotals.efficiency_pct ?? '—'}%`}</strong></span>
                   <span>Reject %: <strong className="num-highlight">{liveTotals.reject_pct ?? '—'}%</strong></span>
                   <span>Rework %: <strong className="num-highlight">{liveTotals.rework_pct ?? '—'}%</strong></span>
+                  <span data-testid="log-setting-time">Setting Time: <strong className="num-highlight">{logSettingMinutes({ savedHours: logHours, draftRows: draftHourRows, settingTimeMin: activeLog.setting_time_min })} min</strong></span>
                 </div>
               )}
               <ShiftVerificationStatus verification={shiftCheck.current} appUsers={appUsers} placement="bottom" />

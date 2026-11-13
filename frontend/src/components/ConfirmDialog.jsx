@@ -14,10 +14,12 @@ import { AlertTriangle, Loader2, Trash2 } from 'lucide-react'
  *   children        extra input under the body (e.g. a reason)
  *   confirmDisabled e.g. until a required reason is typed
  */
-export default function ConfirmDialog({ open, recordType, label, onConfirm, onClose, confirmText = 'Delete', title, body, tone = 'danger', cancelLabel = 'Cancel', hideCancel = false, children, confirmDisabled = false }) {
+export default function ConfirmDialog({ open, recordType, label, onConfirm, onClose, confirmText: confirmTextProp, confirmLabel, title, body, tone = 'danger', cancelLabel = 'Cancel', hideCancel = false, children, confirmDisabled = false }) {
   const [pending, setPending] = useState(false)
   const cancelRef = useRef(null)
   const confirmRef = useRef(null)
+  // confirmLabel = the client app's name for the same prop (ported screens use it).
+  const confirmText = confirmTextProp ?? confirmLabel ?? 'Delete'
   const confirmTone = tone === 'confirm'
   const noticeTone = tone === 'notice'
 

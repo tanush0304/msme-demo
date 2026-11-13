@@ -3,8 +3,10 @@ import { Field, TextInput } from './FormSection'
 import { generateHourlySlots, splitHourHistory } from '../utils/hourlySlots'
 import { todayISO } from '../utils/dates'
 import { employeeLabelForId } from '../utils/employeeLabel'
+import { shiftHoursStatus, canAddSlot } from '../utils/shiftHoursLimit'
+import { otherLogSlots, slotBlockedByOtherLog } from '../utils/machineShiftClash'
 import {
-  IDLE_CATEGORIES,
+  idleCategories,
   totalIdle,
   validateIdle,
   slotDurations,
@@ -66,6 +68,18 @@ import {
  * rows of any other shift, so an approved shift elsewhere on the log
  * can't make the save fail.
  *
+ * `withSetup` (046) adds the per-hour "Setup" minutes column (first idle
+ * column; blank = null). `hoursLimit` = { shift (incl. lunch_break_duration),
+ * otherRows, canOvertime, machineLabel }: shows "Shift A: 11 net hrs, worked
+ * X, remaining Y" (worked = slot minutes - Lunch), blocks Save Hours past the
+ * gross shift (Σ slot minutes) or the net hours (Σ slot - lunch) -- this log
+ * + other logs on the machine -- and disables Add Hour at the limit;
+ * supervisor / admin (canOvertime) may go over, shown as overtime.
+ * Same `otherRows` (with prd_no) close the slots other logs on the machine
+ * already used for the date + shift, and every slot before the last of them
+ * (2026-11-12: new hours go AFTER the last used slot -- grid rule; 050 only
+ * refuses the same slot twice). This log's own saved rows stay editable.
+ *
  * `shiftStatuses` ({ "date|shift": { status, text } }) labels the history
  * table; a Rejected shift there gets a "Correct" button (`onCorrectShift`).
  */
@@ -87,7 +101,13 @@ export default function HourlySlotsEntry({
   entryDate,
   shiftStatuses = {},
   onCorrectShift,
+  withSetup = false,
+  hoursLimit = null,
+  hideIdleKeys = [],
 }) {
+  // hideIdleKeys: columns a screen leaves out (Manual Operations, 2026-11-13);
+  // hidden ones are never sent, so the DB keeps its default for them.
+  const cats = idleCategories(showIdle && withSetup).filter((c) => !hideIdleKeys.includes(c.key))
   const [drafts, setDrafts] = useState({}) // slot -> { qty_produced, qty_rejected, qty_rework }
   const [committedTimes, setCommittedTimes] = useState({ startTime, endTime })
   const prevResetKeyRef = useRef(resetKey)
@@ -140,13 +160,15 @@ export default function HourlySlotsEntry({
   // utils/hourlySlots.js's splitHourHistory for why that's the right split.
   const { savedToday, historyList } = splitHourHistory({ logHours, today, shiftCode })
   const savedSlotNumbersToday = new Set(savedToday.map((h) => h.hour_slot))
-  const highestKnownSlotToday = Math.max(slots.length, ...savedToday.map((h) => h.hour_slot), 0)
+  const otherSlots = hoursLimit ? otherLogSlots(hoursLimit.otherRows ?? []) : null
+  const blockedNote = (slot) => slotBlockedByOtherLog(slot, otherSlots, savedSlotNumbersToday)
+  const highestKnownSlotToday = Math.max(slots.length, ...savedToday.map((h) => h.hour_slot), otherSlots?.lastSlot ?? 0, 0)
 
   const draftKeys = [
     'qty_produced',
     'qty_rejected',
     'qty_rework',
-    ...(showIdle ? [...IDLE_CATEGORIES.map((c) => c.key), 'remarks'] : []),
+    ...(showIdle ? [...cats.map((c) => c.key), 'remarks'] : []),
   ]
   const durations = slotDurations({ start_time: committedTimes.startTime, end_time: committedTimes.endTime })
 
@@ -175,6 +197,7 @@ export default function HourlySlotsEntry({
     const out = {}
     for (const k of draftKeys) {
       if (k === 'remarks') out.remarks = typeof d.remarks === 'string' && d.remarks.trim() ? d.remarks.trim() : null
+      else if (k === 'setup_min') out.setup_min = d.setup_min === '' || d.setup_min === undefined || d.setup_min === null ? null : Number(d.setup_min)
       else out[k] = d[k] === '' || d[k] === undefined || d[k] === null ? 0 : Number(d[k])
     }
     return out
@@ -194,7 +217,7 @@ export default function HourlySlotsEntry({
     return Object.fromEntries(Object.entries(merged).filter(([k, v]) => v !== before[k]))
   }
 
-  const pendingSlots = slots.filter((s) => !savedSlotNumbersToday.has(s.slot))
+  const pendingSlots = slots.filter((s) => !savedSlotNumbersToday.has(s.slot) && !blockedNote(s.slot))
   const changedSaved = readOnly ? [] : savedToday.filter((h) => Object.keys(changedFields(h)).length > 0)
   const anyEntered = pendingSlots.some((s) => isEntered(s.slot)) || changedSaved.length > 0
   const rowErrors = {}
@@ -210,6 +233,23 @@ export default function HourlySlotsEntry({
     }
   }
   const hasRowErrors = Object.keys(rowErrors).length > 0
+
+  // 046 shift-hours limit: this log's saved rows of the grid's date + shift
+  // + other logs on the machine, plus the new rows about to be saved.
+  const newSlotRows = pendingSlots.filter((s) => isEntered(s.slot)).map((s) => ({ hour_slot: s.slot, lunch: drafts[s.slot]?.lunch }))
+  const limit = hoursLimit
+    ? shiftHoursStatus({
+        shift: hoursLimit.shift,
+        ownSavedRows: savedToday,
+        otherRows: hoursLimit.otherRows ?? [],
+        newRows: newSlotRows,
+        editedRows: changedSaved.map(mergedSaved),
+        canOvertime: hoursLimit.canOvertime,
+        machineLabel: hoursLimit.machineLabel,
+        logDate: today,
+      })
+    : null
+  const overLimit = !!limit?.over
 
   // New rows + edited saved rows (with id, replacing the saved values) --
   // reported for the screen's live totals.
@@ -232,7 +272,7 @@ export default function HourlySlotsEntry({
     : null
 
   async function handleSaveHours() {
-    if (hasRowErrors) return
+    if (hasRowErrors || overLimit) return
     const rows = pendingSlots
       .filter((s) => isEntered(s.slot))
       .map((s) => {
@@ -247,7 +287,8 @@ export default function HourlySlotsEntry({
       })
     const changes = changedSaved.map((h) => ({ id: h.id, ...changedFields(h) }))
     if (rows.length === 0 && changes.length === 0) return
-    await onSaveHours(rows, changes)
+    // false = the screen refused the save (e.g. qty cap popup) -- keep the drafts
+    if ((await onSaveHours(rows, changes)) === false) return
     setDrafts((d) => {
       const next = { ...d }
       for (const row of rows) delete next[row.hour_slot]
@@ -258,22 +299,27 @@ export default function HourlySlotsEntry({
 
   function idlePayload(d) {
     const out = {}
-    for (const c of IDLE_CATEGORIES) out[c.key] = d[c.key] === '' || d[c.key] === undefined ? 0 : Number(d[c.key])
+    for (const c of cats) {
+      if (c.key === 'setup_min') out.setup_min = d.setup_min === '' || d.setup_min === undefined ? null : Number(d.setup_min)
+      else out[c.key] = d[c.key] === '' || d[c.key] === undefined ? 0 : Number(d[c.key])
+    }
     out.remarks = d.remarks?.trim() ? d.remarks.trim() : null
     return out
   }
 
   const [extraForm, setExtraForm] = useState({ qty_produced: '', qty_rejected: '', qty_rework: '' })
   const nextExtraSlot = highestKnownSlotToday + 1
+  const extraBlockedByLimit = !!limit && !hoursLimit?.canOvertime && !canAddSlot(limit, hoursLimit?.shift, nextExtraSlot)
 
   async function handleAddExtra() {
-    if (nextExtraSlot > 12) return
-    await onAddExtraHour({
+    if (nextExtraSlot > 12 || extraBlockedByLimit) return
+    const result = await onAddExtraHour({
       hour_slot: nextExtraSlot,
       qty_produced: extraForm.qty_produced === '' ? 0 : Number(extraForm.qty_produced),
       qty_rejected: extraForm.qty_rejected === '' ? 0 : Number(extraForm.qty_rejected),
       qty_rework: extraForm.qty_rework === '' ? 0 : Number(extraForm.qty_rework),
     })
+    if (result === false) return // refused (qty cap popup / save error) -- keep what was typed
     setExtraForm({ qty_produced: '', qty_rejected: '', qty_rework: '' })
   }
 
@@ -326,6 +372,15 @@ export default function HourlySlotsEntry({
 
       {/* Only the grid is locked: the history table above (and its Correct
           button) must stay usable while the grid shows an Approved shift. */}
+      {limit && (
+        <div
+          data-testid="shift-hours-banner"
+          className={`rounded border px-3 py-1.5 text-xs ${limit.over ? 'border-red-200 bg-red-50 text-red-700' : limit.remainingMin === 0 ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-gray-200 bg-gray-50 text-gray-700'}`}
+        >
+          {limit.banner}
+          {limit.error && <div className="mt-0.5 font-medium" role="alert">{limit.error}</div>}
+        </div>
+      )}
       <fieldset disabled={readOnly} className="space-y-2 min-w-0">
       {capped && (
         <div className="bg-amber-50 border border-amber-200 text-amber-800 text-xs px-3 py-1.5 rounded">
@@ -349,7 +404,7 @@ export default function HourlySlotsEntry({
                 <th className="px-2 py-1.5 font-medium">Rework</th>
                 {showIdle && (
                   <>
-                    {IDLE_CATEGORIES.map((c) => (
+                    {cats.map((c) => (
                       <th key={c.key} className="px-1 py-1.5 font-medium leading-tight" title="Idle minutes">
                         {c.label}
                       </th>
@@ -362,7 +417,7 @@ export default function HourlySlotsEntry({
               {showIdle && (
                 <tr className="bg-gray-50 text-[10px] text-gray-400 text-left">
                   <th colSpan={4} />
-                  <th colSpan={IDLE_CATEGORIES.length + 1} className="px-1 pb-1 font-normal">
+                  <th colSpan={cats.length + 1} className="px-1 pb-1 font-normal">
                     Idle time (minutes, max 60 per hour)
                   </th>
                   <th />
@@ -373,6 +428,20 @@ export default function HourlySlotsEntry({
               {slots.map((s) => {
                 const saved = savedToday.find((h) => h.hour_slot === s.slot)
                 const rowError = rowErrors[s.slot]
+                const blocked = saved ? null : blockedNote(s.slot)
+                if (blocked) {
+                  return (
+                    <tr key={s.slot} className="border-t border-gray-100 bg-gray-50" data-testid={`slot-blocked-${s.slot}`}>
+                      <td className="px-2 py-1 text-gray-400">
+                        {s.slot}. {s.label}
+                        <span className="block text-[10px] text-amber-700">{blocked}</span>
+                      </td>
+                      <td colSpan={3 + (showIdle ? cats.length + 2 : 0)} className="px-2 py-1 text-[11px] text-gray-400">
+                        Not available on this machine for this shift
+                      </td>
+                    </tr>
+                  )
+                }
                 return (
                   <tr key={s.slot} className={`border-t border-gray-100 ${rowError ? 'bg-red-50' : ''}`} title={rowError}>
                     <td className="px-2 py-1 text-gray-700">
@@ -390,8 +459,8 @@ export default function HourlySlotsEntry({
                         <td className="px-2 py-1 text-gray-500">{saved.qty_rework}</td>
                         {showIdle && (
                           <>
-                            {IDLE_CATEGORIES.map((c) => (
-                              <td key={c.key} className="px-1 py-1 text-gray-500">{saved[c.key] ?? 0}</td>
+                            {cats.map((c) => (
+                              <td key={c.key} className="px-1 py-1 text-gray-500">{saved[c.key] ?? (c.key === 'setup_min' ? '' : 0)}</td>
                             ))}
                             <td className="px-2 py-1 text-gray-500 font-medium">{totalIdle(saved)}</td>
                             <td className="px-2 py-1 text-gray-500">{saved.remarks ?? ''}</td>
@@ -403,8 +472,8 @@ export default function HourlySlotsEntry({
                         <td className="px-2 py-1">
                           <input
                             type="number"
-                            className={inputClass}
                             aria-label={`Hour ${s.slot} produced`}
+                            className={inputClass}
                             value={cellValue(s.slot, 'qty_produced', saved)}
                             onChange={(e) => updateDraft(s.slot, 'qty_produced', e.target.value)}
                           />
@@ -412,8 +481,8 @@ export default function HourlySlotsEntry({
                         <td className="px-2 py-1">
                           <input
                             type="number"
-                            className={inputClass}
                             aria-label={`Hour ${s.slot} rejected`}
+                            className={inputClass}
                             value={cellValue(s.slot, 'qty_rejected', saved)}
                             onChange={(e) => updateDraft(s.slot, 'qty_rejected', e.target.value)}
                           />
@@ -421,15 +490,15 @@ export default function HourlySlotsEntry({
                         <td className="px-2 py-1">
                           <input
                             type="number"
-                            className={inputClass}
                             aria-label={`Hour ${s.slot} rework`}
+                            className={inputClass}
                             value={cellValue(s.slot, 'qty_rework', saved)}
                             onChange={(e) => updateDraft(s.slot, 'qty_rework', e.target.value)}
                           />
                         </td>
                         {showIdle && (
                           <>
-                            {IDLE_CATEGORIES.map((c) => (
+                            {cats.map((c) => (
                               <td key={c.key} className="px-1 py-1">
                                 <input
                                   type="number"
@@ -482,7 +551,7 @@ export default function HourlySlotsEntry({
           <div className="px-2 py-1.5 border-t border-gray-100">
             <button
               onClick={handleSaveHours}
-              disabled={saving || !anyEntered || hasRowErrors}
+              disabled={saving || !anyEntered || hasRowErrors || overLimit}
               className="bg-brandblue text-white rounded px-3 py-1.5 text-xs font-medium disabled:opacity-40"
             >
               {saving ? 'Saving...' : 'Save Hours'}
@@ -515,9 +584,9 @@ export default function HourlySlotsEntry({
         </Field>
         <button
           onClick={handleAddExtra}
-          disabled={saving || nextExtraSlot > 12}
+          disabled={saving || nextExtraSlot > 12 || extraBlockedByLimit}
           className="bg-brandslate text-white rounded px-3 py-1.5 text-xs font-medium disabled:opacity-40"
-          title="For overtime beyond this shift's own hourly slots, today"
+          title={extraBlockedByLimit ? "Shift hours limit reached -- only a supervisor or admin can add overtime" : "For overtime beyond this shift's own hourly slots, today"}
         >
           Add Hour {nextExtraSlot <= 12 ? nextExtraSlot : ''}
         </button>
