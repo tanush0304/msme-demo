@@ -139,6 +139,11 @@ create trigger trg_stage_reopens_insert_guard
   before insert on public."production stage reopens"
   for each row execute function public.guard_stage_reopens_insert();
 
+-- (demo, added 2026-11-13 after VERIFICATION V3 showed anon could execute it)
+revoke all on function public.guard_stage_reopens_insert() from public, anon;
+
+grant execute on function public.guard_stage_reopens_insert() to authenticated, service_role;
+
 -- 5. What blocks a reopen ('{}' = nothing). Used by the app (RPC) and the trigger.
 create or replace function public.stage_reopen_blockers(p_stage_id bigint) returns text[]
 language plpgsql stable set search_path = public as $$  -- invoker: base-table RLS applies
@@ -350,7 +355,7 @@ select count(*) as reopen_rows from public."production stage reopens";
 --   drop function if exists public.guard_stage_reopen();
 --   drop function if exists public.stage_reopen_blockers(bigint);
 --   drop table if exists public."production stage reopens";
---   drop function if exists public.guard_stage_reopens_insert();
+--   drop function if exists public.guard_stage_reopens_insert();  -- (its revoke / grant go with it)
 --   alter table public."production route card stages"
 --     drop column if exists reopened_by, drop column if exists reopened_at, drop column if exists reopen_reason;
 --   notify pgrst, 'reload schema';
