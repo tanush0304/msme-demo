@@ -44,6 +44,8 @@ import { dbErrorMessage } from '../../utils/dbErrors'
 import StageStartGuard from '../../components/StageStartGuard'
 import { earlierIncompleteStage, canStartStage, runningBanner } from '../../utils/stageStartGuard'
 import Banner from '../../components/Banner'
+import OrderLineFields from '../../components/OrderLineFields'
+import { orderLineSuffix } from '../../utils/deliveryAddress'
 
 /**
  * Manual-type stages (De-Burring, Final Inspection, Final Dispatch, ...)
@@ -404,10 +406,17 @@ export default function ManualOperationsScreen({ role }) {
         <Banner tone="error" message={error} onClose={() => setError(null)} />
 
         <FormSection icon={ClipboardCheck} title="1. Select Employee & Order" subtitle="Pick who, then order" columns={3}>
-          <Field label="Employee" required>
+          <Field label="Shift" required>
+            <SelectInput
+              value={shiftCode}
+              onChange={(e) => setShiftCode(e.target.value)}
+              options={shifts.map((s) => s.shift_code)}
+            />
+          </Field>
+          <Field label="Employee ID" required>
             <EmployeeSelect employees={employees} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} disabled={loading || restoring} />
           </Field>
-          <Field label="Production Order (PRD No)" required>
+          <Field label="PRD No" required>
             <SearchableSelect
               value={prdNo}
               onChange={handlePrdChange}
@@ -415,17 +424,18 @@ export default function ManualOperationsScreen({ role }) {
               options={[...new Set(pendingStages.map((s) => s.prd_no))]}
             />
           </Field>
-          <Field label="Part Serial Number">
+          <Field label="Part Serial No">
             <AutoFillBox value={part.part_serial_number} />
           </Field>
           <Field label="Part Name">
             <AutoFillBox value={part.part_name} />
           </Field>
-          <Field label="Part Drawing Number">
+          <OrderLineFields part={part} />
+          <Field label="Part Drawing No">
             <AutoFillBox value={part.part_drawing_reference_number} />
           </Field>
           {stageChoicesForPrd.length > 1 && (
-            <Field label="Which Stage?" required>
+            <Field label="Stage" required>
               <SearchableSelect
                 value={stageChoiceId}
                 onChange={handleStageChoice}
@@ -441,6 +451,7 @@ export default function ManualOperationsScreen({ role }) {
               <span>
                 <strong data-testid="running-banner" className="block text-[14px] text-[#0B2A5B]">
                   {runningBanner({ stage: resolvedStage })}
+                  {orderLineSuffix(part)}
                 </strong>
                 Log open: PRD <strong>{activeLog.prd_no}</strong> · {stageLabel(resolvedStage)} · started{' '}
                 {activeLog.start_time ? new Date(activeLog.start_time).toLocaleString() : '—'}. PRD and Stage are
@@ -476,13 +487,6 @@ export default function ManualOperationsScreen({ role }) {
                 remaining availability reads 0 -- show the log's own planned qty. */}
             <Field label={activeLog ? 'Planned Qty (this log)' : 'Planned Qty (available from upstream)'}>
               <AutoFillBox value={(activeLog ? activeLog.planned_qty : plannedQty) ?? ''} />
-            </Field>
-            <Field label="Shift" required>
-              <SelectInput
-                value={shiftCode}
-                onChange={(e) => setShiftCode(e.target.value)}
-                options={shifts.map((s) => s.shift_code)}
-              />
             </Field>
             {activeLog && (
               <p className="text-xs text-gray-500 sm:col-span-3">

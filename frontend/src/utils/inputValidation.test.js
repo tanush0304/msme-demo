@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { validateNumber, validateMobile, NUMBER_RULES } from './numericFields'
+import { validateNumber, validatePhone, PHONE_MESSAGE, NUMBER_RULES } from './numericFields'
 import { trimTextFields, requiredMissing, codeTooLong, duplicateCodeError, checkMaster, productionBatchError } from './masterValidation'
 import { orderLineError } from './orderValidation'
 import { shiftTimesError } from './shiftCalculations'
@@ -39,22 +39,38 @@ describe('validateNumber', () => {
   })
 })
 
-describe('validateMobile', () => {
-  it('cleans +91, 91, leading 0, spaces and dashes to 10 digits', () => {
-    expect(validateMobile('+91 98765-43210')).toEqual({ value: '9876543210', error: null })
-    expect(validateMobile('919876543210')).toEqual({ value: '9876543210', error: null })
-    expect(validateMobile('09876543210')).toEqual({ value: '9876543210', error: null })
-    expect(validateMobile(' 98765 43210 ')).toEqual({ value: '9876543210', error: null })
+describe('validatePhone', () => {
+  it('cleans a mobile (+91, 91, leading 0, spaces, dashes, brackets) to 10 digits', () => {
+    expect(validatePhone('+91 98765-43210')).toEqual({ value: '9876543210', error: null })
+    expect(validatePhone('919876543210')).toEqual({ value: '9876543210', error: null })
+    expect(validatePhone('09876543210')).toEqual({ value: '9876543210', error: null })
+    expect(validatePhone(' 98765 43210 ')).toEqual({ value: '9876543210', error: null })
+    expect(validatePhone('(+91) 98765 43210')).toEqual({ value: '9876543210', error: null })
   })
-  it('refuses text, wrong length and numbers not starting 6-9', () => {
-    expect(validateMobile('abc').error).toMatch(/10-digit/)
-    expect(validateMobile('12345').error).toMatch(/10-digit/)
-    expect(validateMobile('5876543210').error).toMatch(/6-9/)
-    expect(validateMobile('98765432101').error).toMatch(/10-digit/)
+  it('accepts a landline with STD code and keeps the leading 0', () => {
+    expect(validatePhone('080-2345 6789')).toEqual({ value: '08023456789', error: null })
+    expect(validatePhone('(0821) 234567')).toEqual({ value: '0821234567', error: null })
+    expect(validatePhone('080-23456789')).toEqual({ value: '08023456789', error: null })
+    expect(validatePhone('080 2345 6789')).toEqual({ value: '08023456789', error: null })
+    expect(validatePhone('0821234567')).toEqual({ value: '0821234567', error: null })
+  })
+  it('a plain 0 + 10-digit mobile (no STD group) stays a mobile', () => {
+    expect(validatePhone('08023456789')).toEqual({ value: '8023456789', error: null })
+    expect(validatePhone('0 98765 43210')).toEqual({ value: '9876543210', error: null })
+  })
+  it('refuses text, wrong length, landlines without STD 0 and mobiles not starting 6-9', () => {
+    expect(validatePhone('abc').error).toBe(PHONE_MESSAGE)
+    expect(validatePhone('12345').error).toBe(PHONE_MESSAGE)
+    expect(validatePhone('5876543210').error).toBe(PHONE_MESSAGE)
+    expect(validatePhone('98765432101').error).toBe(PHONE_MESSAGE)
+    expect(validatePhone('23456789').error).toBe(PHONE_MESSAGE)
+    expect(validatePhone('080234').error).toBe(PHONE_MESSAGE)
+    expect(validatePhone('080234567890').error).toBe(PHONE_MESSAGE)
+    expect(PHONE_MESSAGE).toBe('Enter a valid 10-digit mobile or a landline with STD code (e.g. 080-23456789).')
   })
   it('blank is fine when optional, refused when required', () => {
-    expect(validateMobile('')).toEqual({ value: '', error: null })
-    expect(validateMobile('  ', { required: true }).error).toBe('Mobile Number is required.')
+    expect(validatePhone('')).toEqual({ value: '', error: null })
+    expect(validatePhone('  ', { required: true }).error).toBe('Mobile Number is required.')
   })
 })
 
@@ -76,7 +92,7 @@ describe('master validation helpers', () => {
     expect(duplicateCodeError(' CUST-001 ', existing)).toBe('CUST-001 already exists.')
     expect(duplicateCodeError('CUST-003', existing)).toBeNull()
   })
-  it('checkMaster: required message, duplicate only for new, mobiles cleaned', () => {
+  it('checkMaster: required message, duplicate only for new, phones cleaned', () => {
     const base = {
       form: { id: ' V-9 ', name: ' Acme ', mobile: '+91 98765 43210' },
       records: [{ id: 'v-9' }],

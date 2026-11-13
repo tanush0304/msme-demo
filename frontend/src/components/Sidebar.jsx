@@ -111,7 +111,7 @@ export default function Sidebar({ activeKey, activeSubKey, onSelect, onSelectSub
             </span>
             {!collapsed && <span className={`min-w-0 flex-1 text-[13px] leading-tight ${isHome ? 'font-bold' : 'font-semibold'}`}>Home</span>}
           </button>
-          {NAV_ITEMS.map((module) => {
+          {NAV_ITEMS.filter((module) => !isRestricted(module)).map((module) => {
             const presentation = MODULE_PRESENTATION[module.key] ?? { label: module.label, icon: Database }
             const Icon = presentation.icon
             const theme = moduleTheme(module.key)

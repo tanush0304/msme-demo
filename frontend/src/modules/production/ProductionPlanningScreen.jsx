@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ClipboardList, Eye, Route, Layers, Plus, Trash2, Ban } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import ActionToolbar from '../../components/ActionToolbar'
@@ -18,6 +18,12 @@ import { listRawMaterialStockBalance } from '../../data/queries/rawMaterialStock
 import { listRawMaterials } from '../../data/queries/rawMaterials'
 import { listAllProductRawMaterials } from '../../data/queries/productRawMaterials'
 import { listCycleTimesForPart } from '../../data/queries/cycleTimes'
+import { isLabourOrder, LABOUR_ORDER_NOTE } from '../../utils/orderType'
+import { useDeliveryAddresses } from '../../utils/useDeliveryAddresses'
+import { openPoSupported, listLineStatuses } from '../../data/queries/openPo'
+import { planningLineAllowed, poExpired } from '../../utils/openPo'
+import { formatLocalISODate } from '../../utils/dates'
+import { deliveryText, deliveryForLine, deliveryAddressLines } from '../../utils/deliveryAddress'
 import { suggestSplit, validateSplit, masterBatchSizeFor } from '../../utils/batchSplit'
 import { dbErrorMessage } from '../../utils/dbErrors'
 import { validateNumber, NUMBER_RULES } from '../../utils/numericFields'
@@ -37,6 +43,8 @@ const LIST_COLUMNS = [
   { key: 'part_name', label: 'Part Name' },
   { key: 'part_drawing_reference_number', label: 'Part Drawing Number' },
   { key: 'order_qty', label: 'PO Line Qty' },
+  { key: 'order_type', label: 'Order Type' },
+  { key: 'deliver_to', label: 'Deliver To', needsAddresses: true },
   { key: 'expected_delivery', label: 'Expected Delivery' },
   { key: 'available_rm_qty_snapshot', label: 'Available RM Qty', render: (r) => r.available_rm_qty_snapshot ?? 'Pending BOM' },
   { key: 'units_producible', label: 'Total Units Can Be Produced', render: (r) => r.units_producible ?? 'Pending BOM' },
@@ -55,11 +63,11 @@ const NO_PO_KEY = 'no-po'
  * plan into batches (suggested from Production Batch Master: max per PRD,
  * last = remainder; editable; a batch above the master size is blocked --
  * row error, Save disabled, and plan_production_orders refuses it, 038),
- * tick the batches to plan now, Save -> one PRD + Job Route Card per ticked
+ * tick the batches to plan now (none ticked by default; "Tick all"), Save -> one PRD + Job Route Card per ticked
  * batch (plan_production_orders). The rest stays on the line for later.
  * Supervisor/admin can Cancel a PRD that has not started (reason required).
  */
-export default function ProductionPlanningScreen() {
+export default function ProductionPlanningScreen({ role }) {
   const [lines, setLines] = useState([])
   const [poHeaders, setPoHeaders] = useState([])
   const [plans, setPlans] = useState([])
@@ -77,7 +85,15 @@ export default function ProductionPlanningScreen() {
   const [notice, setNotice] = useState('')
   const [search, setSearch] = useState('')
   const [viewedPrd, setViewedPrd] = useState(null)
+  const delivery = useDeliveryAddresses() // 042; Deliver To hidden before it
+  const listColumns = LIST_COLUMNS.filter((c) => !c.needsAddresses || delivery.supported)
   const [routeCardPrd, setRouteCardPrd] = useState(null)
+  // Route card / stage table open UNDER the list and scroll into view
+  // (row click, Route Card button, after Save).
+  const detailRef = useRef(null)
+  useEffect(() => {
+    if (routeCardPrd || viewedPrd) detailRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
+  }, [routeCardPrd, viewedPrd])
 
   async function refresh() {
     const [lineRows, poHeaderRows, planRows, batchRows, customerRows, productRows, bomRows, balanceRows, rmRows] = await Promise.all([
@@ -91,7 +107,14 @@ export default function ProductionPlanningScreen() {
       listRawMaterialStockBalance(),
       listRawMaterials(),
     ])
-    setLines(lineRows)
+    // 043: only Open lines of Open POs (Closed by despatch / Cancelled / PO closed are left out)
+    let plannable = lineRows
+    if (await openPoSupported()) {
+      const status = new Map((await listLineStatuses()).map((l) => [l.order_line_id, l.line_status]))
+      const headerById = new Map(poHeaderRows.map((h) => [h.id, h]))
+      plannable = lineRows.filter((l) => planningLineAllowed(status.get(l.order_line_id) ?? 'Open', headerById.get(l.parent_po_id)))
+    }
+    setLines(plannable)
     setPoHeaders(poHeaderRows)
     setPlans(planRows)
     setBatchMaster(batchRows)
@@ -107,7 +130,9 @@ export default function ProductionPlanningScreen() {
   }, [])
 
   const selectedLine = lines.find((l) => String(l.order_line_id) === String(form.line_id))
-  const selectedCustomer = customers.find((c) => c.customer_id === selectedLine?.customer_id)
+  const selectedHeader = poHeaders.find((h) => String(h.id) === String(form.po_key))
+  const selectedPoExpired = poExpired(selectedHeader, formatLocalISODate(new Date()))
+  const selectedCustomer =customers.find((c) => c.customer_id === selectedLine?.customer_id)
   const selectedProduct = products.find((p) => p.part_serial_number === selectedLine?.part_serial_number)
   const masterBatchSize = masterBatchSizeFor(batchMaster, selectedLine?.part_serial_number)
   const check = selectedLine ? validateSplit(split, selectedLine.remaining_qty, masterBatchSize, selectedLine.part_serial_number) : null
@@ -125,6 +150,7 @@ export default function ProductionPlanningScreen() {
     }
   })
   const hasBom = materialAvailability.length > 0
+  const labourOrder = isLabourOrder(selectedLine)
   const unitsProducible = hasBom ? Math.min(...materialAvailability.map((m) => m.units_producible)) : null
   const rmUnit = materialAvailability.length === 1
     ? rawMaterials.find((m) => m.raw_material_code === materialAvailability[0].raw_material_code)?.unit_of_measurement || undefined
@@ -156,7 +182,7 @@ export default function ProductionPlanningScreen() {
     const line = lines.find((l) => String(l.order_line_id) === String(lineId))
     const size = masterBatchSizeFor(batchMaster, line?.part_serial_number)
     setForm((f) => ({ po_key: poKey, line_id: lineId ? String(lineId) : '', shift_hours: f.shift_hours }))
-    setSplit(line ? suggestSplit(line.remaining_qty, size).map((qty) => ({ qty: String(qty), plan: true })) : [])
+    setSplit(line ? suggestSplit(line.remaining_qty, size).map((qty) => ({ qty: String(qty), plan: false })) : [])
     setNotice('')
   }
 
@@ -202,10 +228,15 @@ export default function ProductionPlanningScreen() {
         fieldError.fail('line_id', `${selectedLine.part_serial_number} has no route in Cycle Time Master -- add its stages first.`)
         return
       }
-      // Block when any BOM material is short for the batches planned now --
-      // stock re-fetched at the moment of saving. No override.
-      const balance = await listRawMaterialStockBalance()
-      const short = materialAvailability
+      // Labour order (customer-supplied material): no BOM / RM stock check.
+      // Otherwise the part needs a BOM, then every BOM material must cover
+      // the batches planned now -- stock re-fetched at saving. No override.
+      if (!labourOrder && !hasBom) {
+        fieldError.fail('line_id', `${selectedLine.part_serial_number} has no BOM (consumption per unit) in Product Master -- add it before planning.`)
+        return
+      }
+      const balance = labourOrder ? [] : await listRawMaterialStockBalance()
+      const short = (labourOrder ? [] : materialAvailability)
         .map((m) => {
           const stock = balance.find((b) => b.raw_material_code === m.raw_material_code)?.current_stock ?? 0
           const need = check.plannedTotal * m.consumption_per_unit
@@ -256,7 +287,7 @@ export default function ProductionPlanningScreen() {
     }
   }
 
-  const filteredPlans = plans.filter((p) => {
+  const filteredPlans = plans.map((p) => ({ ...p, deliver_to: deliveryText(p, delivery.byId) })).filter((p) => {
     const q = search.trim().toLowerCase()
     if (!q) return true
     return [p.customer_order_no, p.jc_no, p.po_number, p.customer_name, p.part_name].some((v) => String(v ?? '').toLowerCase().includes(q))
@@ -278,8 +309,8 @@ export default function ProductionPlanningScreen() {
           handleReset()
           setSearch('')
         }}
-        onExportExcel={() => exportToCsv(LIST_COLUMNS, filteredPlans, 'production_planning.csv')}
-        onExportPdf={() => exportToPdf(LIST_COLUMNS, filteredPlans, 'Production Planning', 'production_planning')}
+        onExportExcel={() => exportToCsv(listColumns, filteredPlans, 'production_planning.csv')}
+        onExportPdf={() => exportToPdf(listColumns, filteredPlans, 'Production Planning', 'production_planning')}
       />
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-page">
@@ -317,12 +348,32 @@ export default function ProductionPlanningScreen() {
           <Field label="Expected Date of Delivery">
             <AutoFillBox value={selectedLine?.expected_delivery ?? ''} />
           </Field>
+          <Field label="Order Type">
+            <AutoFillBox value={selectedLine?.order_type ?? ''} />
+          </Field>
+          {delivery.supported && (
+            <Field label="Deliver To">
+              <div title={deliveryAddressLines(deliveryForLine(selectedLine, delivery.byId)).join('\n') || undefined} className="min-w-0">
+                <AutoFillBox value={deliveryText(selectedLine, delivery.byId)} />
+              </div>
+            </Field>
+          )}
           <Field label="Available RM Qty Stock">
             <AutoFillBox value={availableRmQtyDisplay} unit={rmUnit} />
           </Field>
           <Field label="Total Units Can Be Produced">
             <AutoFillBox value={hasBom ? unitsProducible : 'Pending BOM'} unit={hasBom ? 'Nos' : undefined} />
           </Field>
+          {selectedPoExpired && (
+            <p className="col-span-full rounded border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs text-amber-800" role="status">
+              PO {selectedHeader.po_number} validity ended on {selectedHeader.valid_to} -- planning is still allowed.
+            </p>
+          )}
+          {labourOrder && (
+            <p className="col-span-full text-xs text-sky-700" role="note">
+              {LABOUR_ORDER_NOTE}
+            </p>
+          )}
           <Field name="shift_hours" label="Shift Hours" required>
             <TextInput type="number" value={form.shift_hours} onChange={(e) => setForm((f) => ({ ...f, shift_hours: e.target.value }))} />
           </Field>
@@ -366,43 +417,41 @@ export default function ProductionPlanningScreen() {
                 </tbody>
               </table>
               <div className="flex flex-wrap items-center gap-3 text-[13px]">
-                <button type="button" onClick={() => setSplit((rows) => [...rows, { qty: '', plan: true }])} className="inline-flex items-center gap-1 text-brandblue hover:underline">
+                <button type="button" onClick={() => setSplit((rows) => [...rows, { qty: '', plan: false }])} className="inline-flex items-center gap-1 text-brandblue hover:underline">
                   <Plus size={13} /> Add batch
+                </button>
+                <button type="button" onClick={() => setSplit((rows) => rows.map((r) => ({ ...r, plan: true })))} className="text-brandblue hover:underline">
+                  Tick all
                 </button>
                 <button type="button" onClick={() => selectLine(form.line_id, form.po_key)} className="text-brandblue hover:underline">
                   Reset to suggestion
                 </button>
-                <span className="text-slate-600">
-                  Total {check.total} of {selectedLine.remaining_qty} · planning now {check.planned.length} PRD(s), {check.plannedTotal} pcs
+                <span className="text-slate-600" data-testid="batch-summary">
+                  Total {check.total} of {selectedLine.remaining_qty} · ticked {check.planned.length} PRD(s), {check.plannedTotal} pcs
+                  {check.total - check.plannedTotal > 0 ? ` · ${check.total - check.plannedTotal} stays on the line` : ''}
                 </span>
               </div>
             </div>
           </FormSection>
         )}
 
-        {routeCardPrd && <JobRouteCardSheet prdNo={routeCardPrd} onClose={() => setRouteCardPrd(null)} />}
-
-        {viewedPrd && (
-          <StageTraceTable prdNo={viewedPrd} title={`Route Card Stages for ${viewedPrd}`} card={plans.find((p) => p.prd_no === viewedPrd)} />
-        )}
-
         <RecordsList
           title="Production Planning List"
           columns={[
-            ...LIST_COLUMNS,
+            ...listColumns,
             {
               key: 'action',
               label: 'Action',
               render: (r) => (
                 <span className="inline-flex items-center gap-3">
-                  <button className="inline-flex items-center gap-1 text-brandblue hover:underline text-sm" onClick={() => setViewedPrd(r.prd_no)}>
+                  <button className="inline-flex items-center gap-1 text-brandblue hover:underline text-sm" onClick={(e) => { e.stopPropagation(); setViewedPrd(r.prd_no) }}>
                     <Eye size={14} /> View
                   </button>
-                  <button className="inline-flex items-center gap-1 text-brandblue hover:underline text-sm" onClick={() => setRouteCardPrd(r.prd_no)}>
+                  <button className="inline-flex items-center gap-1 text-brandblue hover:underline text-sm" onClick={(e) => { e.stopPropagation(); setRouteCardPrd(r.prd_no) }}>
                     <Route size={14} /> Route Card
                   </button>
                   {r.can_cancel && !r.has_production_logs && (
-                    <button className="inline-flex items-center gap-1 text-red-600 hover:underline text-sm" onClick={() => handleCancelPrd(r)}>
+                    <button className="inline-flex items-center gap-1 text-red-600 hover:underline text-sm" onClick={(e) => { e.stopPropagation(); handleCancelPrd(r) }}>
                       <Ban size={14} /> Cancel
                     </button>
                   )}
@@ -411,6 +460,7 @@ export default function ProductionPlanningScreen() {
                     <button
                       type="button"
                       disabled
+                      onClick={(e) => e.stopPropagation()}
                       title={STARTED_TITLE}
                       aria-label={`Cancel ${r.prd_no}: ${STARTED_TITLE}`}
                       className="inline-flex cursor-not-allowed items-center gap-1 text-sm text-slate-400"
@@ -424,11 +474,21 @@ export default function ProductionPlanningScreen() {
           ]}
           rows={filteredPlans}
           rowKey="prd_no"
+          selectedKey={routeCardPrd}
+          onRowClick={(r) => setRouteCardPrd((cur) => (cur === r.prd_no ? null : r.prd_no))}
           searchValue={search}
           onSearchChange={setSearch}
           searchPlaceholder="Search by PRD / JC / PO / Customer / Product..."
         />
         <div className="text-xs text-slate-700 px-1">Total Records: {filteredPlans.length}</div>
+
+        {/* Below the list, scrolled into view when opened (detailRef). */}
+        <div ref={detailRef} className="scroll-mt-4 space-y-3">
+          {routeCardPrd && <JobRouteCardSheet prdNo={routeCardPrd} role={role} onClose={() => setRouteCardPrd(null)} />}
+          {viewedPrd && (
+            <StageTraceTable prdNo={viewedPrd} title={`Route Card Stages for ${viewedPrd}`} card={plans.find((p) => p.prd_no === viewedPrd)} />
+          )}
+        </div>
       </div>
     </div>
     </FieldErrorProvider>

@@ -69,7 +69,7 @@ export const OPERATIONS = ['Cutting', 'Facing', 'Rough Turning', 'Finish Turning
 
 const CATEGORY_OPERATIONS = {
   Cutting: ['Cutting'],
-  'CNC Turning': ['Facing', 'Rough Turning', 'Finish Turning', 'Threading'],
+  'CNC': ['Facing', 'Rough Turning', 'Finish Turning', 'Threading'],
   VMC: ['Milling', 'Drilling'],
   Grinding: ['Grinding'],
 }
@@ -79,8 +79,8 @@ const machine = (machine_id, machine_name, category, manufacturer_name, model) =
 export const MACHINES = [
   machine('MC-01', 'Bandsaw BS-260', 'Cutting', 'Demo Machine Tools', 'BS-260'),
   machine('MC-02', 'Circular Saw CS-350', 'Cutting', 'Demo Machine Tools', 'CS-350'),
-  machine('MC-03', 'CNC Lathe TL-200', 'CNC Turning', 'Sample Lathe Works', 'TL-200'),
-  machine('MC-04', 'CNC Lathe TL-250', 'CNC Turning', 'Sample Lathe Works', 'TL-250'),
+  machine('MC-03', 'CNC Lathe TL-200', 'CNC', 'Sample Lathe Works', 'TL-200'),
+  machine('MC-04', 'CNC Lathe TL-250', 'CNC', 'Sample Lathe Works', 'TL-250'),
   machine('MC-05', 'VMC V-600', 'VMC', 'Example CNC Systems', 'V-600'),
   machine('MC-06', 'VMC V-850', 'VMC', 'Example CNC Systems', 'V-850'),
   machine('MC-07', 'Cylindrical Grinder CG-300', 'Grinding', 'Placeholder Grinders', 'CG-300'),
@@ -246,7 +246,7 @@ export const QUALITY_PARAMETERS = [
 
 const CATEGORY_CHECKLIST = {
   Cutting: ['Check blade tension and wear', 'Clean chip tray and coolant sump'],
-  'CNC Turning': ['Check hydraulic oil level', 'Check chuck jaws for wear'],
+  'CNC': ['Check hydraulic oil level', 'Check chuck jaws for wear'],
   VMC: ['Check spindle coolant level', 'Clean way covers and wipers'],
   Grinding: ['Dress grinding wheel', 'Check coolant concentration'],
 }
@@ -262,7 +262,7 @@ export const MAINTENANCE_LOGS = [
   { key: 'ML5', machine_id: 'MC-08', w: 3, shift_code: 'B', employee_id: 'EMP-009', maintenance_type: 'Monthly' },
 ]
 export const MAINTENANCE_SCHEDULE = MACHINES.map((m) => {
-  const frequency = { Cutting: 'Fortnightly', 'CNC Turning': 'Weekly', VMC: 'Weekly', Grinding: 'Monthly' }[m.category]
+  const frequency = { Cutting: 'Fortnightly', 'CNC': 'Weekly', VMC: 'Weekly', Grinding: 'Monthly' }[m.category]
   const visit = MAINTENANCE_LOGS.find((l) => l.machine_id === m.machine_id)
   return { machine_id: m.machine_id, maintenance_frequency: frequency, lastW: visit ? visit.w : 25, status: 'Active' }
 })

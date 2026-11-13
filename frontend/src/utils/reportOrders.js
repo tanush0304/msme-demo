@@ -2,6 +2,12 @@
 import { displayStatus } from './statusLabels'
 import { displayDate } from './reportPeriods'
 
+/** Customer Order Status empty state: `latest` = { po_number, po_date } or null. */
+export function emptyPoMessage(latest) {
+  if (!latest) return 'No POs recorded yet.'
+  return `No POs dated in this period. Latest PO: ${latest.po_number} dated ${displayDate(latest.po_date)}.`
+}
+
 function num(v) {
   const n = Number(v)
   return Number.isFinite(n) ? n : 0
@@ -73,12 +79,6 @@ export function monthlyPoVsDispatch(lines, dispatches, months) {
   return months.map((m) => ({ month: m, label: monthLabel(m), po: po.get(m) ?? 0, dispatched: disp.get(m) ?? 0 }))
 }
 
-/** Empty-state line for Customer Order Status; `latest` = newest PO or null. */
-export function emptyPoMessage(latest) {
-  if (!latest) return 'No POs recorded yet.'
-  return `No POs dated in this period. Latest PO: ${latest.po_number} dated ${displayDate(latest.po_date)}.`
-}
-
 // ---------------------------------------------------------------- Job orders
 
 // DC status comes from "job order status" (migration 031):
@@ -126,8 +126,6 @@ export function jobOrderRows(rows, today) {
   })
 }
 
-/** Counts and % per status; "closed" = Received + Closed Short, "pending" =
- * DCs still out (Sent + Partially Received), overdue = open and late. */
 /** Job Order Status report's Status filter: '' = all; 'Overdue' = the
  * overdue flag (any open status); otherwise the stored status ('Closed Short'
  * is shown as "Partially Received (Closed)"). */
@@ -144,6 +142,8 @@ export function filterByDcStatus(rows, status) {
   return status === 'Overdue' ? rows.filter((r) => r.overdue) : rows.filter((r) => r.status === status)
 }
 
+/** Counts and % per status; "closed" = Received + Closed Short, "pending" =
+ * DCs still out (Sent + Partially Received), overdue = open and late. */
 export function jobOrderCounts(rows) {
   const total = rows.length
   const count = (s) => rows.filter((r) => r.status === s).length
@@ -162,4 +162,14 @@ export function jobOrderCounts(rows) {
 export function stageBackText(stage) {
   if (!stage || num(stage.dc_count) === 0) return 'Not sent'
   return `${num(stage.received_qty).toLocaleString('en-IN')} of ${num(stage.sent_qty).toLocaleString('en-IN')} back`
+}
+
+// Phase C filters on PO lines: Order Type (exact, trimmed) and Deliver To
+// (delivery address id; '' = any). Applied before KPIs / charts / table.
+export function filterOrderLines(lines, { orderType = '', deliveryAddressId = '' } = {}) {
+  return (lines ?? []).filter((l) => {
+    if (orderType && String(l.order_type ?? '').trim() !== orderType) return false
+    if (deliveryAddressId !== '' && deliveryAddressId != null && String(l.delivery_address_id ?? '') !== String(deliveryAddressId)) return false
+    return true
+  })
 }

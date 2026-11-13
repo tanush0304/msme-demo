@@ -1,6 +1,9 @@
-import { User, Phone, Home, MapPin, FileText, Landmark, Settings } from 'lucide-react'
+import { User, Phone, Home, MapPin, FileText, Landmark } from 'lucide-react'
 import { YES_NO_OPTIONS } from '../../utils/numericFields'
 import MasterFormScreen from '../../components/MasterFormScreen'
+import DeliveryAddressesSection from './DeliveryAddressesSection'
+import CustomerProductsSection from './CustomerProductsSection'
+import { useDeliverySupported } from '../../components/OrderLineFields'
 import { MASTER_PAYMENT_TERMS } from '../../utils/poTermsOptions'
 import {
   listCustomers,
@@ -33,10 +36,6 @@ const EMPTY_FORM = {
   payment_terms: '',
   credit_period: '',
   currency: '',
-  customer_product_part_number: '',
-  customer_product_part_name: '',
-  customer_drawing_ref_no: '',
-  revision_drawing_no: '',
   status: '',
 }
 
@@ -59,7 +58,7 @@ const SECTIONS = [
     width: 'wide',
     fields: [
       { key: 'contact_person_name', label: 'Contact Person Name', required: true, width: 'short' },
-      { key: 'mobile_number', label: 'Mobile Number', required: true, mobile: true, width: 'short' },
+      { key: 'mobile_number', label: 'Mobile Number', mobile: true, width: 'short' },
       { key: 'email_address', label: 'Email Address', required: true, type: 'email', width: 'short' },
       { key: 'alternate_contact_number', label: 'Alternate Contact Number', width: 'short' },
     ],
@@ -121,19 +120,10 @@ const SECTIONS = [
       { key: 'status', label: 'Status', type: 'select', options: ['Active', 'Inactive'], width: 'short' },
     ],
   },
-  {
-    icon: Settings,
-    title: '7. Customer Product & Drawing Details',
-    subtitle: 'Linked product and drawing refs',
-    width: 'full',
-    fields: [
-      { key: 'customer_product_part_number', label: 'Customer Product Part Number' },
-      { key: 'customer_drawing_ref_no', label: 'Customer Drawing Reference No', required: true },
-      { key: 'customer_product_part_name', label: 'Customer Product Part Name' },
-      { key: 'revision_drawing_no', label: 'Revision Drawing No' },
-    ],
-  },
 ]
+// Section 7 "Customer Product & Drawing Details" was removed (045 port): a
+// product's customer now lives on Product Master. The four DB columns are
+// KEPT and never sent on save, so their old values stay.
 
 const LIST_COLUMNS = [
   { key: 'customer_id', label: 'Customer ID' },
@@ -146,7 +136,25 @@ const LIST_COLUMNS = [
   { key: 'status', label: 'Status', type: 'status' },
 ]
 
+// Old section-7 columns: never sent (the form loads the whole row, so they
+// are stripped here to leave the stored values untouched).
+export const LEGACY_SECTION7_KEYS = ['customer_product_part_number', 'customer_product_part_name', 'customer_drawing_ref_no', 'revision_drawing_no']
+
+export function withoutLegacySection7(payload) {
+  const out = { ...payload }
+  for (const k of LEGACY_SECTION7_KEYS) delete out[k]
+  return out
+}
+
+const API = {
+  list: listCustomers,
+  create: (payload) => createCustomer(withoutLegacySection7(payload)),
+  update: (pk, payload) => updateCustomer(pk, withoutLegacySection7(payload)),
+  remove: deleteCustomer,
+}
+
 export default function CustomerMaster() {
+  const addressesShown = useDeliverySupported() // number the products card after Delivery Addresses only when shown
   return (
     <MasterFormScreen
       title="Customer Master"
@@ -158,8 +166,14 @@ export default function CustomerMaster() {
       sections={SECTIONS}
       listColumns={LIST_COLUMNS}
       searchFields={['customer_id', 'customer_name']}
-      api={{ list: listCustomers, create: createCustomer, update: updateCustomer, remove: deleteCustomer }}
+      api={API}
       exportFilename="customer_master.csv"
+      renderAfterSections={({ form, mode, nextNumber }) => (
+        <>
+          <DeliveryAddressesSection customerId={form.customer_id} mode={mode} sectionNumber={nextNumber} />
+          <CustomerProductsSection customerId={form.customer_id} mode={mode} sectionNumber={nextNumber + (addressesShown ? 1 : 0)} />
+        </>
+      )}
     />
   )
 }

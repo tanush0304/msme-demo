@@ -53,6 +53,8 @@ import { validateNumber, NUMBER_RULES } from '../../utils/numericFields'
 import StageStartGuard from '../../components/StageStartGuard'
 import { pickDefaultStage, defaultMachineForStage, earlierIncompleteStage, canStartStage, runningBanner } from '../../utils/stageStartGuard'
 import Banner from '../../components/Banner'
+import OrderLineFields from '../../components/OrderLineFields'
+import { orderLineSuffix } from '../../utils/deliveryAddress'
 import { FieldErrorProvider, useFieldError } from '../../components/FieldError'
 import DailyChecklistGate from '../../components/DailyChecklistGate'
 import { gateApplies, gateAllowsStart } from '../../utils/dailyChecklist'
@@ -611,10 +613,17 @@ export default function ProductionDataEntryScreen({ role }) {
         <Banner tone="error" message={error} onClose={() => setError(null)} />
 
         <FormSection icon={Factory} title="1. Select Employee, Order & Machine" subtitle="Pick who, then order and machine" columns={3}>
-          <Field name="employee" label="Employee" required>
+          <Field name="shift" label="Shift" required>
+            <SelectInput
+              value={shiftCode}
+              onChange={(e) => setShiftCode(e.target.value)}
+              options={shifts.map((s) => s.shift_code)}
+            />
+          </Field>
+          <Field name="employee" label="Employee ID" required>
             <EmployeeSelect employees={employees} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} disabled={loading || restoring} />
           </Field>
-          <Field name="prd" label="Production Order (PRD No)" required>
+          <Field name="prd" label="PRD No" required>
             <SearchableSelect
               value={prdNo}
               onChange={handlePrdChange}
@@ -622,13 +631,14 @@ export default function ProductionDataEntryScreen({ role }) {
               options={[...new Set(pendingStages.map((s) => s.prd_no))]}
             />
           </Field>
-          <Field label="Part Serial Number">
+          <Field label="Part Serial No">
             <AutoFillBox value={part.part_serial_number} />
           </Field>
           <Field label="Part Name">
             <AutoFillBox value={part.part_name} />
           </Field>
-          <Field label="Part Drawing Number">
+          <OrderLineFields part={part} />
+          <Field label="Part Drawing No">
             <AutoFillBox value={part.part_drawing_reference_number} />
           </Field>
           <Field name="machine" label="Machine" required>
@@ -643,7 +653,7 @@ export default function ProductionDataEntryScreen({ role }) {
             />
           </Field>
           {stageChoicesForPrd.length > 1 && (
-            <Field label="Which Stage?" required>
+            <Field label="Stage" required>
               <SearchableSelect
                 value={stageChoiceId}
                 onChange={handleStageChoice}
@@ -659,6 +669,7 @@ export default function ProductionDataEntryScreen({ role }) {
               <span>
                 <strong data-testid="running-banner" className="block text-[14px] text-[#0B2A5B]">
                   {runningBanner({ stage: resolvedStage, machineLabel: actualMachineText(activeLog.machine_id) })}
+                  {orderLineSuffix(part)}
                 </strong>
                 Log open: PRD <strong>{activeLog.prd_no}</strong> · {stageLabel(resolvedStage)} · Machine{' '}
                 <strong>{machineLabels[activeLog.machine_id] ?? activeLog.machine_id}</strong> · started{' '}
@@ -721,13 +732,6 @@ export default function ProductionDataEntryScreen({ role }) {
                 No Cycle Time Master entry for this part + process -- cycle time will be left blank on the report.
               </p>
             )}
-            <Field name="shift" label="Shift" required>
-              <SelectInput
-                value={shiftCode}
-                onChange={(e) => setShiftCode(e.target.value)}
-                options={shifts.map((s) => s.shift_code)}
-              />
-            </Field>
             {activeLog && (
               <p className="text-xs text-gray-500 sm:col-span-3">
                 This log started under Shift {activeLog.shift_code} -- the dropdown stays live and decides which

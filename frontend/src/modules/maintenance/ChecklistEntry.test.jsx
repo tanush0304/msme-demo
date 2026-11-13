@@ -57,8 +57,8 @@ async function pick({ type }) {
   const selects = screen.getAllByRole('combobox')
   fireEvent.change(selects[0], { target: { value: 'MC-1' } }) // machine
   await waitFor(() => expect(q.listChecklistItemsForMachine).toHaveBeenCalledWith('MC-1'))
-  fireEvent.change(selects[1], { target: { value: 'EMP-1' } }) // engineer
-  fireEvent.change(selects[2], { target: { value: 'A' } }) // shift
+  fireEvent.change(selects[2], { target: { value: 'EMP-1' } }) // engineer (after Date + Shift)
+  fireEvent.change(selects[1], { target: { value: 'A' } }) // shift
   fireEvent.change(document.querySelector('input[type="date"]'), { target: { value: '2026-10-28' } })
   fireEvent.change(selects[3], { target: { value: type } }) // type of maintenance
 }
@@ -110,5 +110,55 @@ describe('Checklist Entry', () => {
     fireEvent.click(screen.getByRole('button', { name: /Start Visit/ }))
     await waitFor(() => expect(q.createMaintenanceLog).toHaveBeenCalledTimes(1))
     expect(q.listMaintenanceLogsForShift).not.toHaveBeenCalled()
+  })
+})
+
+describe('Checklist Entry -- untagged items (frequency blank / NULL)', () => {
+  const MIXED = [...ITEMS, { id: 4, machine_id: 'MC-1', checklist_item: 'Clean chips', frequency: null }, { id: 5, machine_id: 'MC-1', checklist_item: 'Lube', frequency: '  ' }]
+
+  it('show under every type with a "(no frequency set)" note; tagged items only under their type', async () => {
+    q.listChecklistItemsForMachine.mockResolvedValue(MIXED)
+    await pick({ type: 'Weekly' })
+    fireEvent.click(screen.getByRole('button', { name: /Start Visit/ }))
+    await screen.findByText('Belt tension')
+    expect(screen.getByText('Clean chips')).toBeTruthy()
+    expect(screen.getByText('Lube')).toBeTruthy()
+    expect(screen.queryByText('Oil level')).toBeNull()
+    expect(screen.getAllByText('(no frequency set)')).toHaveLength(2)
+    expect(screen.getAllByRole('checkbox')).toHaveLength(3)
+  })
+
+  it('a type with no tagged match still shows the untagged items and no "No ... items" message', async () => {
+    q.listChecklistItemsForMachine.mockResolvedValue(MIXED)
+    await pick({ type: 'Monthly' })
+    await waitFor(() => expect(screen.queryByText(/No Monthly checklist items/)).toBeNull())
+    fireEvent.click(screen.getByRole('button', { name: /Start Visit/ }))
+    await screen.findByText('Clean chips')
+    expect(screen.getAllByRole('checkbox')).toHaveLength(2)
+  })
+
+  it('all items untagged (live today): shown under Daily, each with the note', async () => {
+    q.listChecklistItemsForMachine.mockResolvedValue(MIXED.filter((i) => !String(i.frequency ?? '').trim()))
+    await pick({ type: 'Daily' })
+    expect(screen.queryByText(/No Daily checklist items/)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /Start Visit/ }))
+    await screen.findByText('Clean chips')
+    expect(screen.getAllByText('(no frequency set)')).toHaveLength(2)
+  })
+})
+
+describe('Checklist Entry -- live D / W / M codes', () => {
+  it('items coded D show under Daily, W / M items do not; no "(no frequency set)" note', async () => {
+    q.listChecklistItemsForMachine.mockResolvedValue([
+      { id: 11, machine_id: 'MC-1', checklist_item: 'Machine Cleaning', frequency: 'D' },
+      { id: 12, machine_id: 'MC-1', checklist_item: 'Lubrication Pressure', frequency: 'W' },
+      { id: 13, machine_id: 'MC-1', checklist_item: 'Overhaul the Chuck', frequency: 'M' },
+    ])
+    await pick({ type: 'Daily' })
+    fireEvent.click(screen.getByRole('button', { name: /Start Visit/ }))
+    await screen.findByText('Machine Cleaning')
+    expect(screen.queryByText('Lubrication Pressure')).toBeNull()
+    expect(screen.queryByText('Overhaul the Chuck')).toBeNull()
+    expect(screen.queryByText('(no frequency set)')).toBeNull()
   })
 })

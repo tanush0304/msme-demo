@@ -17,6 +17,8 @@ import { PageHeaderBandProvider } from './components/PageHeader'
 import { getMyAppUser, createAppUser } from './data/queries/appUsers'
 import { NAV_ITEMS, isModuleRestricted } from './utils/constants'
 import { authTransition } from './utils/authTransition'
+import { AlertsProvider, useAlertsState } from './components/alerts/AlertsContext'
+import NeedsAttentionDialog from './components/alerts/NeedsAttentionDialog'
 
 // Lazy: Reports pulls in Recharts, which the other modules don't need.
 const ReportsModule = lazy(() => import('./modules/ReportsModule'))
@@ -36,6 +38,8 @@ function App() {
   // Id of the signed-in user the current screen belongs to; see authTransition.
   const userIdRef = useRef(null)
   const userId = session?.user?.id ?? null
+  // Supervisor/admin reminders (bell + "Needs attention" on the Main Menu).
+  const alerts = useAlertsState({ role: session ? role : null, userId, onMainMenu: Boolean(session) && role !== undefined && showMainMenu })
 
   useEffect(() => {
     function applySession(next) {
@@ -110,8 +114,15 @@ function App() {
     return <div className="min-h-screen flex items-center justify-center bg-page text-gray-400 text-sm">Loading...</div>
   }
 
+  const alertsDialog = <NeedsAttentionDialog onOpenItem={(target) => handleSelectSub(target.topKey, target.subKey, target.mode)} />
+
   if (showMainMenu) {
-    return <MainMenu role={role} onNavigate={handleSelect} onSignOut={() => supabase.auth.signOut()} />
+    return (
+      <AlertsProvider value={alerts}>
+        <MainMenu role={role} onNavigate={handleSelect} onSignOut={() => supabase.auth.signOut()} />
+        {alertsDialog}
+      </AlertsProvider>
+    )
   }
 
   // Modules with `roles` in NAV_ITEMS (Masters, Reports & Dashboard) are
@@ -123,7 +134,7 @@ function App() {
   if (restricted) content = <ComingSoon title={NAV_ITEMS.find((item) => item.key === activeKey).label} subtitle="Supervisor or admin access required." />
   else if (activeKey === 'dashboard') content = <ReportsModule activeTab={activeSubKey} activeMode={activeMode} role={role} onOpenScreen={(subKey, mode) => handleSelectSub('dashboard', subKey, mode)} />
   else if (activeKey === 'masters') content = <MasterList activeTab={activeSubKey} onSelect={(subKey) => handleSelectSub('masters', subKey)} />
-  else if (activeKey === 'customer-order') content = <CustomerOrderModule activeTab={activeSubKey} onSelect={(subKey) => handleSelectSub('customer-order', subKey)} />
+  else if (activeKey === 'customer-order') content = <CustomerOrderModule key={`${activeSubKey}-${activeMode ?? ''}`} activeTab={activeSubKey} activeMode={activeMode} role={role} onSelect={(subKey) => handleSelectSub('customer-order', subKey)} />
   else if (activeKey === 'production') content = <ProductionModule activeTab={activeSubKey} role={role} onSelect={(subKey) => handleSelectSub('production', subKey)} />
   else if (activeKey === 'quality') content = (
       <QualityModule
@@ -133,7 +144,7 @@ function App() {
         onSelect={(subKey, mode) => handleSelectSub('quality', subKey, mode)}
       />
     )
-  else if (activeKey === 'job-order') content = <JobOrderModule activeTab={activeSubKey} role={role} onSelect={(subKey) => handleSelectSub('job-order', subKey)} />
+  else if (activeKey === 'job-order') content = <JobOrderModule activeTab={activeSubKey} activeMode={activeMode} role={role} onSelect={(subKey) => handleSelectSub('job-order', subKey)} />
   else if (activeKey === 'maintenance') content = <MaintenanceModule activeTab={activeSubKey} role={role} onSelect={(subKey) => handleSelectSub('maintenance', subKey)} />
   else if (activeKey === 'stores') content = (
       <StoresModule
@@ -146,6 +157,7 @@ function App() {
   else content = <ComingSoon title={TITLES[activeKey] ?? activeKey} />
 
   return (
+    <AlertsProvider value={alerts}>
     <div className="flex h-screen overflow-hidden bg-page">
       <Sidebar
         activeKey={activeKey}
@@ -169,6 +181,8 @@ function App() {
         </PageHeaderBandProvider>
       </ModuleThemeProvider>
     </div>
+    {alertsDialog}
+    </AlertsProvider>
   )
 }
 

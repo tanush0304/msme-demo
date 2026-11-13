@@ -1,3 +1,4 @@
+import { withRmSpec } from '../../utils/rmLabel'
 import { useEffect, useState } from 'react'
 import { Boxes, PackagePlus } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
@@ -393,26 +394,44 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue', role }) 
             <Field label="Issue No">
               <TextInput value={savedDocNo.issue || '(auto-generated on save)'} readOnly />
             </Field>
-            <Field label="Employee ID" required>
-              <EmployeeSelect employees={employees} value={issueForm.employee_id} onChange={handleIssueField('employee_id')} />
+            <Field label="Date" required>
+              <TextInput type="date" value={issueForm.transaction_date} onChange={handleIssueField('transaction_date')} />
             </Field>
-            <Field label="Current Stock">
-              <AutoFillBox value={currentStockFor(issueForm.raw_material_code)} unit={uomFor(issueForm.raw_material_code)} />
-            </Field>
-
-            <Field label="Employee Name">
-              <AutoFillBox value={employeeName(issueForm.employee_id)} />
-            </Field>
-            <Field label="Number of units can be produced">
-              <AutoFillBox value={unitsProducibleFor(issueForm.part_serial_number, issueForm.raw_material_code)} unit="Nos" />
-            </Field>
-
             <Field label="Shift" required>
               <SelectInput
                 value={issueForm.shift_code}
                 onChange={handleIssueField('shift_code')}
                 options={shifts.map((s) => ({ value: s.shift_code, label: s.shift_name || s.shift_code }))}
               />
+            </Field>
+            <Field label="Employee ID" required>
+              <EmployeeSelect employees={employees} value={issueForm.employee_id} onChange={handleIssueField('employee_id')} />
+            </Field>
+            <Field label="Employee Name">
+              <AutoFillBox value={employeeName(issueForm.employee_id)} />
+            </Field>
+            <Field label="Part Serial No">
+              <SearchableSelect
+                value={issueForm.part_serial_number}
+                onChange={handleIssueField('part_serial_number')}
+                options={productOptions(products)}
+              />
+            </Field>
+            <Field label="Raw material / Consumable name" required>
+              <SearchableSelect
+                value={issueForm.raw_material_code}
+                onChange={handleIssueField('raw_material_code')}
+                options={rawMaterials.map((r) => ({
+                  value: r.raw_material_code,
+                  label: withRmSpec(r.raw_material_name || r.raw_material_code, r),
+                }))}
+              />
+            </Field>
+            <Field label="Current Stock">
+              <AutoFillBox value={currentStockFor(issueForm.raw_material_code)} unit={uomFor(issueForm.raw_material_code)} />
+            </Field>
+            <Field label="Number of units can be produced">
+              <AutoFillBox value={unitsProducibleFor(issueForm.part_serial_number, issueForm.raw_material_code)} unit="Nos" />
             </Field>
             <Field label="Quantity Issued" required>
               <div className="flex rounded overflow-hidden border border-gray-300">
@@ -423,30 +442,8 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue', role }) 
                   placeholder="Enter Quantity"
                   className="flex-1 px-3 py-2 text-sm focus:outline-none"
                 />
-                <span className="px-3 py-2 text-sm text-gray-500 bg-gray-100 border-l border-gray-300">{uomFor(issueForm.raw_material_code) || '—'}</span>
+                <span className="px-3 py-2 text-sm text-gray-500 bg-gray-100 border-l border-gray-300">{uomFor(issueForm.raw_material_code) || 'â€”'}</span>
               </div>
-            </Field>
-
-            <Field label="Raw material / Consumable name" required>
-              <SearchableSelect
-                value={issueForm.raw_material_code}
-                onChange={handleIssueField('raw_material_code')}
-                options={rawMaterials.map((r) => ({
-                  value: r.raw_material_code,
-                  label: r.raw_material_name || r.raw_material_code,
-                }))}
-              />
-            </Field>
-            <Field label="Issue Date" required>
-              <TextInput type="date" value={issueForm.transaction_date} onChange={handleIssueField('transaction_date')} />
-            </Field>
-
-            <Field label="Part Serial Number">
-              <SearchableSelect
-                value={issueForm.part_serial_number}
-                onChange={handleIssueField('part_serial_number')}
-                options={productOptions(products)}
-              />
             </Field>
 
             <p className="sm:col-span-2 text-xs text-gray-500 bg-sky-50 border border-sky-100 rounded px-3 py-2">
@@ -459,13 +456,19 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue', role }) 
             <Field label="Receipt No">
               <TextInput value={savedDocNo.receipt || '(auto-generated on save)'} readOnly />
             </Field>
+            <Field label="Date" required>
+              <TextInput type="date" value={receiptForm.transaction_date} onChange={handleReceiptField('transaction_date')} />
+            </Field>
+            <Field label="Shift" required>
+              <SelectInput
+                value={receiptForm.shift_code}
+                onChange={handleReceiptField('shift_code')}
+                options={shifts.map((s) => ({ value: s.shift_code, label: s.shift_name || s.shift_code }))}
+              />
+            </Field>
             <Field label="Employee ID" required>
               <EmployeeSelect employees={employees} value={receiptForm.employee_id} onChange={handleReceiptField('employee_id')} />
             </Field>
-            <Field label="Current Stock">
-              <AutoFillBox value={currentStockFor(receiptForm.raw_material_code)} unit={uomFor(receiptForm.raw_material_code)} />
-            </Field>
-
             <Field label="Employee Name">
               <AutoFillBox value={employeeName(receiptForm.employee_id)} />
             </Field>
@@ -476,39 +479,18 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue', role }) 
                 options={suppliers.map((s) => ({ value: s.supplier_id, label: s.supplier_name || s.supplier_id }))}
               />
             </Field>
-
-            <Field label="Shift" required>
-              <SelectInput
-                value={receiptForm.shift_code}
-                onChange={handleReceiptField('shift_code')}
-                options={shifts.map((s) => ({ value: s.shift_code, label: s.shift_name || s.shift_code }))}
-              />
-            </Field>
-            <Field label="Quantity Received" required>
-              <div className="flex rounded overflow-hidden border border-gray-300">
-                <input
-                  type="number"
-                  value={receiptForm.qty}
-                  onChange={handleReceiptField('qty')}
-                  placeholder="Enter Quantity"
-                  className="flex-1 px-3 py-2 text-sm focus:outline-none"
-                />
-                <span className="px-3 py-2 text-sm text-gray-500 bg-gray-100 border-l border-gray-300">{uomFor(receiptForm.raw_material_code) || '—'}</span>
-              </div>
-            </Field>
-
             <Field label="Raw material / Consumable name" required>
               <SearchableSelect
                 value={receiptForm.raw_material_code}
                 onChange={handleReceiptField('raw_material_code')}
                 options={rawMaterials.map((r) => ({
                   value: r.raw_material_code,
-                  label: r.raw_material_name || r.raw_material_code,
+                  label: withRmSpec(r.raw_material_name || r.raw_material_code, r),
                 }))}
               />
             </Field>
-            <Field label="Receipt Date" required>
-              <TextInput type="date" value={receiptForm.transaction_date} onChange={handleReceiptField('transaction_date')} />
+            <Field label="Current Stock">
+              <AutoFillBox value={currentStockFor(receiptForm.raw_material_code)} unit={uomFor(receiptForm.raw_material_code)} />
             </Field>
             {/* Read-only from Raw Material Master once a material is picked (field audit). */}
             <Field label="Description">
@@ -525,6 +507,18 @@ export default function RawMaterialStoreScreen({ initialMode = 'issue', role }) 
             </Field>
             <Field label="RM Source">
               <AutoFillBox value={receiptRm.rm_source} />
+            </Field>
+            <Field label="Quantity Received" required>
+              <div className="flex rounded overflow-hidden border border-gray-300">
+                <input
+                  type="number"
+                  value={receiptForm.qty}
+                  onChange={handleReceiptField('qty')}
+                  placeholder="Enter Quantity"
+                  className="flex-1 px-3 py-2 text-sm focus:outline-none"
+                />
+                <span className="px-3 py-2 text-sm text-gray-500 bg-gray-100 border-l border-gray-300">{uomFor(receiptForm.raw_material_code) || 'â€”'}</span>
+              </div>
             </Field>
           </FormSection>
         )}

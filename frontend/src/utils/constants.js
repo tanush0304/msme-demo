@@ -197,3 +197,8 @@ export const SUBSTITUTE_REASONS = ['Planned machine busy', 'Breakdown', 'Supervi
 // (and CLIENT_NAME to its alt text) to brand the demo for a client.
 export const CLIENT_LOGO = null
 export const CLIENT_NAME = ''
+
+// Daily checklist gate on Production Data Entry (DailyChecklistGate): when
+// true, a new log on an Internal stage waits for today's Daily checklist on
+// the machine + shift. Set false to turn it off: no panel, Start unaffected.
+export const DAILY_CHECKLIST_GATE_ENABLED = true

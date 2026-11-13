@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ComposedChart, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList } from 'recharts'
 import { useChartType, series } from '../../components/reports/ChartTypeToggle'
-import { ClipboardList, Package, Settings, BarChart3, ShieldX, RefreshCw, TrendingUp, Gauge, Recycle } from 'lucide-react'
+import { Package, Settings, BarChart3, ShieldX, RefreshCw, TrendingUp, Gauge, Recycle } from 'lucide-react'
 import PageHeader from '../../components/PageHeader'
 import ReportFilterBar from '../../components/reports/ReportFilterBar'
 import { KpiCard, KpiCardRow, formatQty } from '../../components/reports/KpiCard'
@@ -17,8 +17,11 @@ import { stageLabel } from '../../utils/stageLabel'
 import { daysBetween, shortDate, displayDate } from '../../utils/reportPeriods'
 import { monthLabel } from '../../utils/reportOrders'
 import useReportPeriod from '../../components/reports/useReportPeriod'
-import { MANUAL_LABEL, pct, trendBuckets, productionStatusRows, productionStatusKpis, dailyTrend, byMachine } from '../../utils/reportAggregates'
+import { MANUAL_LABEL, pct, trendBuckets, productionStatusRows, productionStatusKpis, dailyTrend, byMachine, isTargetRow, prdProducedKpis } from '../../utils/reportAggregates'
 import Banner from '../../components/Banner'
+import { listOrdersByPrd } from '../../data/queries/customerOrders'
+import { getStagesForPrd } from '../../data/queries/routeCards'
+import { getStageAggregatesForPrd } from '../../data/queries/productionLogs'
 
 const EMPTY_FILTERS = { prdNo: '', machineId: '', shiftCode: '', employeeId: '' }
 
@@ -83,15 +86,33 @@ export default function ProductionStatusScreen() {
   const setFilter = r.setFilter
 
   const kpis = useMemo(() => productionStatusKpis(rows), [rows])
+  // The KPI row is per PRD -- empty until a PRD is applied.
+  const kpiPrd = applied.prdNo || ''
+  const [prdKpi, setPrdKpi] = useState(null)
+  useEffect(() => {
+    setPrdKpi(null)
+    if (!kpiPrd) return undefined
+    let cancelled = false
+    Promise.all([listOrdersByPrd(), getStagesForPrd(kpiPrd), getStageAggregatesForPrd(kpiPrd)])
+      .then(([orders, stages, aggregates]) => {
+        if (!cancelled) setPrdKpi(prdProducedKpis({ order: orders.find((o) => o.prd_no === kpiPrd), stages, aggregates }))
+      })
+      .catch((e) => !cancelled && setError(e.message))
+    return () => {
+      cancelled = true
+    }
+  }, [kpiPrd])
   const detail = useMemo(() => productionStatusRows(rows), [rows])
   // Daily, or monthly above 62 days (efficiency recomputed from the month's sums).
+  // 046: rows carry good_qty / target_qty -> "Good vs Target", efficiency = good / target.
+  const goodVsTarget = rows.some(isTargetRow)
   const trend = useMemo(
     () =>
-      trendBuckets(dailyTrend(rows, daysBetween(applied.from, applied.to)), { sum: ['produced', 'standard'], dayLabel: shortDate, monthLabel }).map((d) => ({
+      trendBuckets(dailyTrend(rows, daysBetween(applied.from, applied.to)), { sum: ['produced', 'good', 'standard'], dayLabel: shortDate, monthLabel }).map((d) => ({
         ...d,
-        efficiency_pct: pct(d.produced, d.standard),
+        efficiency_pct: pct(goodVsTarget ? d.good : d.produced, d.standard),
       })),
-    [rows, applied.from, applied.to]
+    [rows, applied.from, applied.to, goodVsTarget]
   )
   const machines = useMemo(() => byMachine(rows), [rows])
   const totalsRow = useMemo(
@@ -120,25 +141,32 @@ export default function ProductionStatusScreen() {
 
         <Banner tone="error" message={error} onClose={() => setError(null)} />
 
-        <KpiCardRow>
-          <KpiCard label="Total Production Orders" value={formatQty(kpis.orders)} icon={ClipboardList} tone="blue" loading={loading} />
-          <KpiCard label="Total Required Quantity" value={formatQty(kpis.required)} unit="Nos" icon={Package} tone="green" loading={loading} />
-          <KpiCard label="Total Produced Quantity" value={formatQty(kpis.produced)} unit="Nos" icon={Settings} tone="orange" loading={loading} />
-          <KpiCard label="Overall Production Efficiency" value={kpis.efficiency_pct == null ? '—' : kpis.efficiency_pct.toFixed(1)} unit={kpis.efficiency_pct == null ? '' : '%'} icon={BarChart3} tone="purple" loading={loading} />
-          <KpiCard label="Total Reject Quantity" value={formatQty(kpis.rejected)} unit="Nos" sub={`(${fmtPct(kpis.reject_pct)})`} icon={ShieldX} tone="red" loading={loading} />
-          <KpiCard label="Total Rework Quantity" value={formatQty(kpis.rework)} unit="Nos" sub={`(${fmtPct(kpis.rework_pct)})`} icon={RefreshCw} tone="teal" loading={loading} />
-        </KpiCardRow>
+        {!kpiPrd ? (
+          <div className="rounded-xl border border-dashed border-gray-300 bg-white px-4 py-6 text-center text-sm text-gray-500" data-testid="kpi-select-prd">
+            Select a PRD No to see its order qty, produced qty and efficiency.
+          </div>
+        ) : (
+          <KpiCardRow columns={5}>
+            <KpiCard label="PRD Qty" value={formatQty(prdKpi?.prd_qty)} unit="Nos" sub={prdKpi?.order_qty != null ? `(PO line ${formatQty(prdKpi.order_qty)})` : undefined} icon={Package} tone="green" loading={!prdKpi} />
+            <KpiCard label="Qty Produced (last stage good)" value={formatQty(prdKpi?.produced)} unit="Nos" sub="to date" icon={Settings} tone="orange" loading={!prdKpi} />
+            <KpiCard label="Production Efficiency" value={kpis.efficiency_pct == null ? '—' : kpis.efficiency_pct.toFixed(1)} unit={kpis.efficiency_pct == null ? '' : '%'} sub="this period" icon={BarChart3} tone="purple" loading={loading} />
+            <KpiCard label="Reject Quantity" value={formatQty(kpis.rejected)} unit="Nos" sub={`(${fmtPct(kpis.reject_pct)}, this period)`} icon={ShieldX} tone="red" loading={loading} />
+            <KpiCard label="Rework Quantity" value={formatQty(kpis.rework)} unit="Nos" sub={`(${fmtPct(kpis.rework_pct)}, this period)`} icon={RefreshCw} tone="teal" loading={loading} />
+          </KpiCardRow>
+        )}
 
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
-          <ChartCard title={`Produced vs Standard (${trend.length && trend[0].date.length === 7 ? 'Monthly' : 'Daily'})`} icon={TrendingUp} loading={loading} empty={empty}>
+          <ChartCard title={`${goodVsTarget ? 'Good vs Target' : 'Produced vs Standard'} (${trend.length && trend[0].date.length === 7 ? 'Monthly' : 'Daily'})`} icon={TrendingUp} loading={loading} empty={empty}>
             <ComposedChart data={trend} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
               <XAxis dataKey="label" tick={AXIS_TICK} minTickGap={12} />
               <YAxis tick={AXIS_TICK} width={48} />
               <Tooltip formatter={(v) => formatQty(v)} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
-              {series(chartType, { key: 'standard', dataKey: 'standard', name: 'Standard Qty', color: CHART_COLORS.blue })}
-              {series(chartType, { key: 'produced', dataKey: 'produced', name: 'Produced Qty', color: CHART_COLORS.green })}
+              {series(chartType, { key: 'standard', dataKey: 'standard', name: goodVsTarget ? 'Target Qty' : 'Standard Qty', color: CHART_COLORS.blue })}
+              {goodVsTarget
+                ? series(chartType, { key: 'good', dataKey: 'good', name: 'Good Qty', color: CHART_COLORS.green })
+                : series(chartType, { key: 'produced', dataKey: 'produced', name: 'Produced Qty', color: CHART_COLORS.green })}
             </ComposedChart>
           </ChartCard>
 

@@ -34,6 +34,9 @@ import { voidEntry } from '../../data/queries/voidEntries'
 import { VOID_TYPES, isVoided, voidBlockReason, withVoidLabels, voidRowClass } from '../../utils/voidEntry'
 import { dbErrorMessage } from '../../utils/dbErrors'
 import Banner from '../../components/Banner'
+import OrderLineFields, { DeliveryAddressBlock } from '../../components/OrderLineFields'
+import { useDeliveryAddresses } from '../../utils/useDeliveryAddresses'
+import { deliveryText } from '../../utils/deliveryAddress'
 
 const EMPTY_DISPATCH_FORM = {
   employee_id: '',
@@ -60,6 +63,7 @@ const DISPATCH_COLUMNS = [
   { key: 'prd_no', label: 'Production Order No.' },
   { key: 'part_serial_number', label: 'Part Serial Number' },
   { key: 'order_type', label: 'Type of Order' },
+  { key: 'deliver_to', label: 'Deliver To', needsAddresses: true },
   { key: 'order_qty', label: 'Order Qty (Nos)' },
   { key: 'qty_in_stock', label: 'Qty in Stock (Nos)' },
   { key: 'qty_received', label: 'Qty Received (Nos)' },
@@ -83,6 +87,7 @@ const RECEIPT_COLUMNS = [
 export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch', role }) {
   const [mode, setMode] = useState(initialMode) // 'dispatch' | 'production-receipt'
   const [orders, setOrders] = useState([])
+  const delivery = useDeliveryAddresses() // 042; Deliver To hidden before it
   const [employees, setEmployees] = useState([])
   const [shifts, setShifts] = useState([])
   const [balances, setBalances] = useState([])
@@ -337,6 +342,7 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch', rol
         ...t,
         employee_name: employeeName(t.employee_id),
         order_type: orderTypeForPrd(orders, t.prd_no),
+        deliver_to: deliveryText(order, delivery.byId),
         order_qty: order?.order_qty ?? '',
         qty_in_stock: qtyInStockForPrd(t.prd_no),
         qty_received: qtyReceivedForPrd(t.prd_no),
@@ -378,7 +384,7 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch', rol
     )
   })
 
-  const activeColumns = [...(mode === 'dispatch' ? DISPATCH_COLUMNS : RECEIPT_COLUMNS), EDITED_COLUMN, ...(mode === 'dispatch' ? [VOID_COLUMN] : [])]
+  const activeColumns = [...(mode === 'dispatch' ? DISPATCH_COLUMNS.filter((c) => !c.needsAddresses || delivery.supported) : RECEIPT_COLUMNS), EDITED_COLUMN, ...(mode === 'dispatch' ? [VOID_COLUMN] : [])]
   const listTitle = mode === 'dispatch' ? 'Finished Goods Despatch List' : 'Finished Goods Production Receipt List'
   const exportName = mode === 'dispatch' ? 'fg_despatch' : 'fg_production_receipt'
 
@@ -449,20 +455,9 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch', rol
             <Field label="Despatch No">
               <TextInput value={savedDocNo.dispatch || '(auto-generated on save)'} readOnly />
             </Field>
-            <Field label="Employee ID" required>
-              <EmployeeSelect employees={employees} value={dispatchForm.employee_id} onChange={handleDispatchField('employee_id')} />
+            <Field label="Date" required>
+              <TextInput type="date" value={dispatchForm.transaction_date} onChange={handleDispatchField('transaction_date')} />
             </Field>
-            <Field label="Order Quantity">
-              <AutoFillBox value={selectedDispatchOrder?.order_qty} unit="Nos" />
-            </Field>
-
-            <Field label="Employee Name">
-              <AutoFillBox value={employeeName(dispatchForm.employee_id)} />
-            </Field>
-            <Field label="Quantity in Stock">
-              <AutoFillBox value={qtyInStockForPrd(dispatchForm.prd_no)} unit="Nos" />
-            </Field>
-
             <Field label="Shift" required>
               <SelectInput
                 value={dispatchForm.shift_code}
@@ -470,12 +465,56 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch', rol
                 options={shifts.map((s) => ({ value: s.shift_code, label: s.shift_name || s.shift_code }))}
               />
             </Field>
+            <Field label="Employee ID" required>
+              <EmployeeSelect employees={employees} value={dispatchForm.employee_id} onChange={handleDispatchField('employee_id')} />
+            </Field>
+            <Field label="Employee Name">
+              <AutoFillBox value={employeeName(dispatchForm.employee_id)} />
+            </Field>
+            <Field label="PRD No" required>
+              <SearchableSelect
+                value={dispatchForm.prd_no}
+                onChange={handleDispatchField('prd_no')}
+                options={orders.map((o) => o.prd_no)}
+              />
+            </Field>
+            <Field label="Part Serial No">
+              <AutoFillBox value={selectedDispatchOrder?.part_serial_number} />
+            </Field>
+            <Field label="Part Name">
+              <AutoFillBox value={dispatchPart.part_name} />
+            </Field>
+            <Field label="Part Drawing No">
+              <AutoFillBox value={dispatchPart.part_drawing_reference_number} />
+            </Field>
+            <Field label="Type of Order">
+              <AutoFillBox value={orderTypeForPrd(orders, dispatchForm.prd_no)} />
+            </Field>
+            {delivery.supported && (
+              <Field label="Deliver To" width="long">
+                <DeliveryAddressBlock address={dispatchPart.delivery} />
+              </Field>
+            )}
+            <Field label="Order Quantity">
+              <AutoFillBox value={selectedDispatchOrder?.order_qty} unit="Nos" />
+            </Field>
+            <Field label="Quantity in Stock">
+              <AutoFillBox value={qtyInStockForPrd(dispatchForm.prd_no)} unit="Nos" />
+            </Field>
             <Field label="Quantity Received">
               <AutoFillBox value={qtyReceivedForPrd(dispatchForm.prd_no)} unit="Nos" />
             </Field>
-
-            <Field label="Date" required>
-              <TextInput type="date" value={dispatchForm.transaction_date} onChange={handleDispatchField('transaction_date')} />
+            <Field label="Balance Quantity to be despatched">
+              <AutoFillBox value={selectedDispatchStatus?.balance_to_dispatch} unit="Nos" />
+            </Field>
+            <Field label="Order Status">
+              <div className="flex items-center h-[38px]">
+                {selectedDispatchStatus?.order_status ? (
+                  <StatusPill status={selectedDispatchStatus.order_status} />
+                ) : (
+                  <span className="text-sm text-gray-400">—</span>
+                )}
+              </div>
             </Field>
             <Field label="Despatch Quantity" required>
               <div className="flex rounded overflow-hidden border border-gray-300">
@@ -492,39 +531,6 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch', rol
               </div>
             </Field>
 
-            <Field label="Production Order number" required>
-              <SearchableSelect
-                value={dispatchForm.prd_no}
-                onChange={handleDispatchField('prd_no')}
-                options={orders.map((o) => o.prd_no)}
-              />
-            </Field>
-            <Field label="Balance Quantity to be despatched">
-              <AutoFillBox value={selectedDispatchStatus?.balance_to_dispatch} unit="Nos" />
-            </Field>
-
-            <Field label="Part Serial Number">
-              <AutoFillBox value={selectedDispatchOrder?.part_serial_number} />
-            </Field>
-            <Field label="Part Name">
-              <AutoFillBox value={dispatchPart.part_name} />
-            </Field>
-            <Field label="Part Drawing Number">
-              <AutoFillBox value={dispatchPart.part_drawing_reference_number} />
-            </Field>
-            <Field label="Type of Order">
-              <AutoFillBox value={orderTypeForPrd(orders, dispatchForm.prd_no)} />
-            </Field>
-            <Field label="Order Status">
-              <div className="flex items-center h-[38px]">
-                {selectedDispatchStatus?.order_status ? (
-                  <StatusPill status={selectedDispatchStatus.order_status} />
-                ) : (
-                  <span className="text-sm text-gray-400">—</span>
-                )}
-              </div>
-            </Field>
-
             <p className="sm:col-span-2 text-xs text-gray-500 bg-sky-50 border border-sky-100 rounded px-3 py-2">
               "Employee ID" picks who's physically despatching the goods (Employee Master); the account you're
               logged in as is recorded automatically.
@@ -535,15 +541,50 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch', rol
             <Field label="Receipt No">
               <TextInput value={savedDocNo.receipt || '(auto-generated on save)'} readOnly />
             </Field>
+            <Field label="Date" required>
+              <TextInput type="date" value={receiptForm.transaction_date} onChange={handleReceiptField('transaction_date')} />
+            </Field>
+            <Field label="Shift" required>
+              <SelectInput
+                value={receiptForm.shift_code}
+                onChange={handleReceiptField('shift_code')}
+                options={shifts.map((s) => ({ value: s.shift_code, label: s.shift_name || s.shift_code }))}
+              />
+            </Field>
             <Field label="Employee ID" required>
               <EmployeeSelect employees={employees} value={receiptForm.employee_id} onChange={handleReceiptField('employee_id')} />
             </Field>
-            <Field label="Part Serial Number">
-              <AutoFillBox value={selectedReceiptOrder?.part_serial_number} />
-            </Field>
-
             <Field label="Employee Name">
               <AutoFillBox value={employeeName(receiptForm.employee_id)} />
+            </Field>
+            <Field label="PRD No" required>
+              <SearchableSelect
+                value={receiptForm.prd_no}
+                onChange={handleReceiptField('prd_no')}
+                options={orders.map((o) => o.prd_no)}
+              />
+            </Field>
+            <Field label="Part Serial No">
+              <AutoFillBox value={selectedReceiptOrder?.part_serial_number} />
+            </Field>
+            <Field label="Part Name">
+              <AutoFillBox value={receiptPart.part_name} />
+            </Field>
+            <OrderLineFields part={receiptPart} />
+            <Field label="Part Drawing No">
+              <AutoFillBox value={receiptPart.part_drawing_reference_number} />
+            </Field>
+            <Field label="Order Quantity">
+              <AutoFillBox value={selectedReceiptOrder?.order_qty} unit="Nos" />
+            </Field>
+            <Field label="Quantity in Stock">
+              <AutoFillBox value={receiptForm.prd_no ? qtyInStockForPrd(receiptForm.prd_no) : ''} unit="Nos" />
+            </Field>
+            <Field label="Can receive (by production)">
+              <AutoFillBox value={receiptLimits?.fromProduction ?? ''} unit="Nos" />
+            </Field>
+            <Field label="Can receive (by order)">
+              <AutoFillBox value={receiptLimits?.fromOrder ?? ''} unit="Nos" />
             </Field>
             <Field label="Quantity Received" required>
               <div className="flex rounded overflow-hidden border border-gray-300">
@@ -558,44 +599,6 @@ export default function FinishedGoodsStoreScreen({ initialMode = 'dispatch', rol
                 />
                 <span className="px-3 py-2 text-sm text-gray-500 bg-gray-100 border-l border-gray-300">Nos</span>
               </div>
-            </Field>
-
-            <Field label="Shift" required>
-              <SelectInput
-                value={receiptForm.shift_code}
-                onChange={handleReceiptField('shift_code')}
-                options={shifts.map((s) => ({ value: s.shift_code, label: s.shift_name || s.shift_code }))}
-              />
-            </Field>
-            <Field label="Date" required>
-              <TextInput type="date" value={receiptForm.transaction_date} onChange={handleReceiptField('transaction_date')} />
-            </Field>
-
-            <Field label="Production Order number" required>
-              <SearchableSelect
-                value={receiptForm.prd_no}
-                onChange={handleReceiptField('prd_no')}
-                options={orders.map((o) => o.prd_no)}
-              />
-            </Field>
-            <Field label="Part Name">
-              <AutoFillBox value={receiptPart.part_name} />
-            </Field>
-            <Field label="Part Drawing Number">
-              <AutoFillBox value={receiptPart.part_drawing_reference_number} />
-            </Field>
-
-            <Field label="Order Quantity">
-              <AutoFillBox value={selectedReceiptOrder?.order_qty} unit="Nos" />
-            </Field>
-            <Field label="Quantity in Stock">
-              <AutoFillBox value={receiptForm.prd_no ? qtyInStockForPrd(receiptForm.prd_no) : ''} unit="Nos" />
-            </Field>
-            <Field label="Can receive (by production)">
-              <AutoFillBox value={receiptLimits?.fromProduction ?? ''} unit="Nos" />
-            </Field>
-            <Field label="Can receive (by order)">
-              <AutoFillBox value={receiptLimits?.fromOrder ?? ''} unit="Nos" />
             </Field>
           </FormSection>
         )}

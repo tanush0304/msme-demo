@@ -72,12 +72,12 @@ describe('Home item', () => {
     expect(within(nav()).getAllByRole('button').filter((b) => b.getAttribute('aria-expanded') === 'true').length).toBe(before)
   })
 
-  it('is enabled for an operator while Masters stays locked', () => {
+  it('is enabled for an operator while Masters is hidden', () => {
     renderHome({ role: 'operator' })
     const home = screen.getByRole('button', { name: 'Open Home' })
     expect(home.disabled).toBe(false)
     expect(home.getAttribute('title')).toBeNull()
-    expect(screen.getByRole('button', { name: 'Masters. Supervisor or admin access required.' }).disabled).toBe(true)
+    expect(screen.queryByRole('button', { name: /Masters/ })).toBeNull()
   })
 
   it('collapsed: icon only, with a Home tooltip', () => {

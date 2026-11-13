@@ -31,7 +31,7 @@ const EMPTY_FORM = {
 
 // Built-in categories; values typed via "+ Add new…" are saved on the
 // machine and offered to everyone after that.
-const BUILT_IN_CATEGORIES = ['Cutting', 'CNC Turning', 'VMC', 'Grinding']
+const BUILT_IN_CATEGORIES = ['Cutting', 'CNC', 'VMC', 'Grinding']
 
 const LIST_COLUMNS = [
   { key: 'machine_id', label: 'Machine ID' },

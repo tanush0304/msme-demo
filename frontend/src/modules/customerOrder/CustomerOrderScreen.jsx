@@ -24,9 +24,17 @@ import { paymentTermsOptions, deliveryTermsOptions, withCustomer } from '../../u
 import { listProducts, resolveProductWithConfirmation } from '../../data/queries/products'
 import { customerDropdownOptions } from '../../utils/customerLabel'
 import { enquiryOptionsForOrder } from '../../utils/qtnOption'
+import { partsForCustomer, partBelongsToOtherCustomer } from '../../utils/productOptions'
+import { useProductCustomerSupported } from '../../utils/useProductCustomer'
 import Banner from '../../components/Banner'
 import { FieldErrorProvider, useFieldError } from '../../components/FieldError'
 import { orderLineProblem } from '../../utils/orderValidation'
+import { ORDER_TYPES, DEFAULT_ORDER_TYPE, orderTypeProblem } from '../../utils/orderType'
+import { useDeliveryAddresses } from '../../utils/useDeliveryAddresses'
+import { defaultAddressId, deliverToOptions, deliverToProblem, deliveryIdOrNull, deliveryText } from '../../utils/deliveryAddress'
+import PoView from './PoView'
+import { openPoSupported, listLineStatuses } from '../../data/queries/openPo'
+import { fmtQtyIn, poFromMode } from '../../utils/openPo'
 import { useDeleteConfirm, labelOf } from '../../components/ConfirmDialog'
 
 const EMPTY_FORM = {
@@ -40,6 +48,7 @@ const EMPTY_FORM = {
   part_serial_number: '',
   order_qty: '',
   order_type: '',
+  delivery_address_id: '',
   expected_delivery: '',
   customer_po_line_no: '',
 }
@@ -50,6 +59,8 @@ const EMPTY_PO_HEADER = {
   po_date: '',
   delivery_terms: '',
   payment_terms: '',
+  valid_from: '',
+  valid_to: '',
 }
 
 const NEW_PART_VALUE = '__new__'
@@ -65,7 +76,8 @@ function emptyLineItem() {
     partName: '',
     drawingNumber: '',
     qtnNo: '',
-    orderType: '',
+    orderType: DEFAULT_ORDER_TYPE,
+    deliveryAddressId: '',
     orderQty: '',
     expectedDelivery: '',
     customerPoLineNo: '',
@@ -82,13 +94,19 @@ const LIST_COLUMNS = [
   { key: 'part_serial_number', label: 'Part Serial Number' },
   { key: 'part_drawing_reference_number', label: 'Part Drawing Number' },
   { key: 'order_qty', label: 'Order Qty' },
+  { key: 'order_type', label: 'Order Type' },
+  { key: 'deliver_to', label: 'Deliver To', needsAddresses: true },
+  { key: 'line_status', label: 'Line Status', type: 'status', needsOpenPo: true },
+  { key: 'planned_text', label: 'Planned', needsOpenPo: true },
+  { key: 'despatched_text', label: 'Despatched', needsOpenPo: true },
   { key: 'expected_delivery', label: 'Expected Delivery' },
 ]
 
 // Typed columns on a "customer orders" row -- blank optional ones go as null.
 const ORDER_LINE_TYPES = { numeric: ['order_qty'], date: ['po_date', 'expected_delivery'] }
 
-export default function CustomerOrderScreen() {
+// initialMode "po:<id>" (bell: PO validity ended) opens that PO's view.
+export default function CustomerOrderScreen({ initialMode = null, role = null }) {
   const [records, setRecords] = useState([])
   const del = useDeleteConfirm()
   const [enquiries, setEnquiries] = useState([])
@@ -96,6 +114,7 @@ export default function CustomerOrderScreen() {
   // Saved PO headers -- only for the Delivery / Payment Terms dropdown options.
   const [poHeaders, setPoHeaders] = useState([])
   const [products, setProducts] = useState([])
+  const productCustomer = useProductCustomerSupported() // 045: parts filtered by customer
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [listSearch, setListSearch] = useState('')
@@ -104,13 +123,20 @@ export default function CustomerOrderScreen() {
   // before this rework. 'new-po' is the new two-level flow -- its own form
   // state below, kept separate so it never cross-contaminates the
   // single-row form.
-  const [mode, setMode] = useState('new-po')
+  const [mode, setMode] = useState(poFromMode(initialMode) ? 'po' : 'new-po') // + 'po' (043 PO view)
+  const [poId, setPoId] = useState(poFromMode(initialMode))
+  // 043: annual / open PO (hidden until the column exists)
+  const [openPo, setOpenPo] = useState(false)
+  const [lineStatus, setLineStatus] = useState(new Map())
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
   const fieldError = useFieldError(saveError, setSaveError)
 
   const [poHeader, setPoHeader] = useState(EMPTY_PO_HEADER)
   const [lineItems, setLineItems] = useState([emptyLineItem()])
+  // 042: customer delivery addresses (hidden until the table exists)
+  const delivery = useDeliveryAddresses()
+  const listColumns = LIST_COLUMNS.filter((c) => (!c.needsAddresses || delivery.supported) && (!c.needsOpenPo || openPo))
 
   async function refresh() {
     setLoading(true)
@@ -125,6 +151,9 @@ export default function CustomerOrderScreen() {
         listPoHeaders(),
       ])
       setPoHeaders(headers)
+      const supported = await openPoSupported()
+      setOpenPo(supported)
+      if (supported) setLineStatus(new Map((await listLineStatuses()).map((l) => [l.order_line_id, l])))
       setRecords(orders.map((o) => {
         const own = prdRows.filter((p) => p.order_line_id === o.order_line_id)
         const planned = own.reduce((a, p) => a + Number(p.prd_qty), 0)
@@ -153,6 +182,34 @@ export default function CustomerOrderScreen() {
     return (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
   }
 
+  // Single-line form: a new customer -> its default Deliver To.
+  function handleFormCustomer(e) {
+    const customerId = e.target.value
+    setForm((f) => ({
+      ...f,
+      customer_id: customerId,
+      delivery_address_id:
+        customerId === f.customer_id ? f.delivery_address_id : String(defaultAddressId(delivery.addresses, customerId) || ''),
+    }))
+  }
+
+  // PO header customer -> every line gets that customer's default Deliver To.
+  function handlePoCustomer(e) {
+    const customerId = e.target.value
+    setPoHeader((h) => withCustomer(h, customerId, customers))
+    const def = String(defaultAddressId(delivery.addresses, customerId) || '')
+    setLineItems((items) =>
+      items.map((it) => ({
+        ...it,
+        deliveryAddressId: def,
+        // 045: these are new lines -- a part of another customer is cleared
+        ...(!it.isNewPart && partBelongsToOtherCustomer(products, it.partSerialNumber, customerId, { enabled: productCustomer })
+          ? { partSerialNumber: '', partName: '', drawingNumber: '' }
+          : {}),
+      })),
+    )
+  }
+
   function handleNew() {
     setPoHeader(EMPTY_PO_HEADER)
     setLineItems([emptyLineItem()])
@@ -172,6 +229,13 @@ export default function CustomerOrderScreen() {
   }
 
   function handleRowClick(row) {
+    // 043: a line of a PO opens the whole PO (validity, status, lines, add line)
+    if (openPo && row.parent_po_id != null) {
+      setPoId(row.parent_po_id)
+      setMode('po')
+      setSaveError(null)
+      return
+    }
     // Guard against a DB null overwriting EMPTY_FORM's '' default (would
     // otherwise make a controlled input briefly uncontrolled on load) --
     // e.g. an old order saved with a null qtn_no must still render/save
@@ -261,7 +325,8 @@ export default function CustomerOrderScreen() {
   }
 
   function addLineItem() {
-    setLineItems((items) => [...items, emptyLineItem()])
+    const def = String(defaultAddressId(delivery.addresses, poHeader.customer_id) || '')
+    setLineItems((items) => [...items, { ...emptyLineItem(), deliveryAddressId: def }])
   }
 
   function removeLineItem(lineKey) {
@@ -284,6 +349,23 @@ export default function CustomerOrderScreen() {
       fieldError.fail(lineProblem.field === 'orderQty' ? 'order_qty' : 'expected_delivery', lineProblem.error)
       return
     }
+    const typeProblem = orderTypeProblem(form.order_type)
+    if (typeProblem) {
+      fieldError.fail('order_type', typeProblem)
+      return
+    }
+    const savedLine = records.find((r) => r.order_line_id === form.order_line_id)
+    const addrProblem = deliverToProblem({
+      supported: delivery.supported,
+      addresses: delivery.addresses,
+      customerId: form.customer_id,
+      deliveryAddressId: form.delivery_address_id,
+      currentId: savedLine?.delivery_address_id ?? null,
+    })
+    if (addrProblem) {
+      fieldError.fail('delivery_address_id', addrProblem)
+      return
+    }
     setSaving(true)
     setSaveError(null)
     try {
@@ -294,9 +376,10 @@ export default function CustomerOrderScreen() {
         po_date: form.po_date,
         part_serial_number: form.part_serial_number,
         order_qty: form.order_qty,
-        order_type: form.order_type || null,
+        order_type: form.order_type,
         expected_delivery: form.expected_delivery,
         customer_po_line_no: form.customer_po_line_no || null,
+        ...(delivery.supported ? { delivery_address_id: deliveryIdOrNull(form.delivery_address_id) } : {}),
       }, ORDER_LINE_TYPES)
       const saved = await updateCustomerOrder(form.order_line_id, payload)
       setForm({ ...EMPTY_FORM, ...form, ...Object.fromEntries(Object.entries(saved).map(([k, v]) => [k, v ?? ''])) })
@@ -313,6 +396,10 @@ export default function CustomerOrderScreen() {
     const missingHeader = ['customer_id', 'po_number', 'po_date'].find((k) => !poHeader[k])
     if (missingHeader) {
       fieldError.fail(`po.${missingHeader}`, 'Customer, PO Number and PO Date are required for the PO header.')
+      return
+    }
+    if (openPo && poHeader.valid_to && poHeader.valid_to < (poHeader.valid_from || poHeader.po_date)) {
+      fieldError.fail('po.valid_to', 'Valid To cannot be before Valid From.')
       return
     }
     const validLines = lineItems.filter((it) => it.partSerialNumber || it.isNewPart)
@@ -338,6 +425,21 @@ export default function CustomerOrderScreen() {
         fieldError.fail(`line.${it.key}.${lineProblem.field}`, lineProblem.error)
         return
       }
+      const typeProblem = orderTypeProblem(it.orderType)
+      if (typeProblem) {
+        fieldError.fail(`line.${it.key}.orderType`, typeProblem)
+        return
+      }
+      const addrProblem = deliverToProblem({
+        supported: delivery.supported,
+        addresses: delivery.addresses,
+        customerId: poHeader.customer_id,
+        deliveryAddressId: it.deliveryAddressId,
+      })
+      if (addrProblem) {
+        fieldError.fail(`line.${it.key}.deliveryAddressId`, addrProblem)
+        return
+      }
     }
 
     setSaving(true)
@@ -349,6 +451,7 @@ export default function CustomerOrderScreen() {
         po_date: poHeader.po_date,
         delivery_terms: poHeader.delivery_terms || null,
         payment_terms: poHeader.payment_terms || null,
+        ...(openPo ? { valid_from: poHeader.valid_from || poHeader.po_date, valid_to: poHeader.valid_to || null } : {}),
       })
 
       // Sequential -- a newly typed part is created (and confirmed) before
@@ -364,6 +467,8 @@ export default function CustomerOrderScreen() {
           partName: it.partName,
           drawingNumber: it.drawingNumber,
           knownProducts,
+          // 045: a part created here belongs to the PO's customer
+          customerId: productCustomer ? poHeader.customer_id : null,
         })
         const partSerialNumber = resolved.partSerialNumber
         knownProducts = resolved.knownProducts
@@ -374,10 +479,11 @@ export default function CustomerOrderScreen() {
           po_date: poHeader.po_date,
           part_serial_number: partSerialNumber,
           order_qty: it.orderQty,
-          order_type: it.orderType || null,
+          order_type: it.orderType,
           expected_delivery: it.expectedDelivery,
           customer_po_line_no: it.customerPoLineNo || null,
           parent_po_id: header.id,
+          ...(delivery.supported ? { delivery_address_id: deliveryIdOrNull(it.deliveryAddressId) } : {}),
         }, ORDER_LINE_TYPES))
         createdPrds.push(line.order_line_id)
       }
@@ -416,17 +522,25 @@ export default function CustomerOrderScreen() {
   }
 
   function handleExportExcel() {
-    exportToCsv(LIST_COLUMNS, filteredRecords, 'customer_orders.csv')
+    exportToCsv(listColumns, filteredRecords, 'customer_orders.csv')
   }
 
   function handleExportPdf() {
-    exportToPdf(LIST_COLUMNS, filteredRecords, 'Customer Orders', 'customer_orders')
+    exportToPdf(listColumns, filteredRecords, 'Customer Orders', 'customer_orders')
   }
 
   const filteredRecords = records.map((r) => ({
     ...r,
     customer_name: customers.find((c) => c.customer_id === r.customer_id)?.customer_name ?? r.customer_id ?? '',
     part_drawing_reference_number: products.find((p) => p.part_serial_number === r.part_serial_number)?.part_drawing_reference_number ?? '',
+    deliver_to: deliveryText(r, delivery.byId),
+    ...(openPo && lineStatus.get(r.order_line_id)
+      ? {
+          line_status: lineStatus.get(r.order_line_id).line_status,
+          planned_text: fmtQtyIn(lineStatus.get(r.order_line_id).planned_qty),
+          despatched_text: fmtQtyIn(lineStatus.get(r.order_line_id).despatched_qty),
+        }
+      : {}),
   })).filter((r) => {
     if (!listSearch) return true
     const q = listSearch.toLowerCase()
@@ -457,13 +571,24 @@ export default function CustomerOrderScreen() {
       <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-page">
         <Banner tone="error" message={saveError} onClose={() => setSaveError(null)} />
 
-        {isNewPo ? (
+        {mode === 'po' && poId != null ? (
+          <PoView
+            key={poId}
+            poId={poId}
+            role={role}
+            customers={customers}
+            products={products}
+            delivery={delivery}
+            orderLines={records}
+            onChanged={refresh}
+          />
+        ) : isNewPo ? (
           <>
             <FormSection icon={FileStack} title="1. PO Header" subtitle="Once per real customer PO">
               <Field name="po.customer_id" label="Customer" required>
                 <SearchableSelect
                   value={poHeader.customer_id}
-                  onChange={(e) => setPoHeader((h) => withCustomer(h, e.target.value, customers))}
+                  onChange={handlePoCustomer}
                   options={customerDropdownOptions(customers)}
                 />
               </Field>
@@ -473,6 +598,16 @@ export default function CustomerOrderScreen() {
               <Field name="po.po_date" label="PO Date" required>
                 <TextInput type="date" value={poHeader.po_date} onChange={handlePoHeaderField('po_date')} />
               </Field>
+              {openPo && (
+                <>
+                  <Field name="po.valid_from" label="Valid From">
+                    <TextInput type="date" value={poHeader.valid_from} onChange={handlePoHeaderField('valid_from')} placeholder="= PO Date" />
+                  </Field>
+                  <Field name="po.valid_to" label="Valid To">
+                    <TextInput type="date" value={poHeader.valid_to} onChange={handlePoHeaderField('valid_to')} />
+                  </Field>
+                </>
+              )}
               <Field label="Delivery Terms">
                 <SelectWithAddNew
                   value={poHeader.delivery_terms ?? ''}
@@ -519,7 +654,7 @@ export default function CustomerOrderScreen() {
                           value={it.partSerialNumber}
                           onChange={handleLineItemProductChange(it.key)}
                           options={[
-                            ...productOptions(products),
+                            ...productOptions(partsForCustomer(products, poHeader.customer_id, it.partSerialNumber, { enabled: productCustomer })),
                             { value: NEW_PART_VALUE, label: '+ Add New Part...' },
                           ]}
                         />
@@ -564,6 +699,8 @@ export default function CustomerOrderScreen() {
                           enquiries,
                           customerId: poHeader.customer_id,
                           partSerialNumber: it.isNewPart ? '' : it.partSerialNumber,
+                          products: productCustomer ? products : null,
+                          currentQtn: it.qtnNo,
                         })}
                       />
                     </Field>
@@ -573,13 +710,28 @@ export default function CustomerOrderScreen() {
                         onChange={handleLineItemField('customerPoLineNo', it.key)}
                       />
                     </Field>
-                    <Field label="Order Type" width="short">
+                    <Field name={`line.${it.key}.orderType`} label="Order Type" width="medium" required>
                       <SelectInput
                         value={it.orderType}
                         onChange={handleLineItemField('orderType', it.key)}
-                        options={['Labour', 'Manufacturing']}
+                        options={ORDER_TYPES}
                       />
                     </Field>
+                    {delivery.supported && (
+                      <Field
+                        name={`line.${it.key}.deliveryAddressId`}
+                        label="Deliver To"
+                        width="medium"
+                        required={deliverToOptions(delivery.addresses, poHeader.customer_id).length > 0}
+                      >
+                        <SearchableSelect
+                          value={String(it.deliveryAddressId ?? '')}
+                          onChange={handleLineItemField('deliveryAddressId', it.key)}
+                          options={deliverToOptions(delivery.addresses, poHeader.customer_id)}
+                          placeholder={poHeader.customer_id ? 'Select...' : 'Pick the customer first'}
+                        />
+                      </Field>
+                    )}
                     <Field name={`line.${it.key}.orderQty`} label="Order Qty" width="short" required>
                       <TextInput
                         type="number"
@@ -630,13 +782,15 @@ export default function CustomerOrderScreen() {
                   enquiries,
                   customerId: form.customer_id,
                   partSerialNumber: form.part_serial_number,
+                  products: productCustomer ? products : null,
+                  currentQtn: form.qtn_no,
                 })}
               />
             </Field>
             <Field name="customer_id" label="Customer" required>
               <SearchableSelect
                 value={form.customer_id}
-                onChange={handleField('customer_id')}
+                onChange={handleFormCustomer}
                 disabled={readOnly}
                 options={customerDropdownOptions(customers)}
               />
@@ -652,17 +806,31 @@ export default function CustomerOrderScreen() {
                 value={form.part_serial_number}
                 onChange={handleField('part_serial_number')}
                 disabled={readOnly}
-                options={productOptions(products)}
+                options={productOptions(partsForCustomer(products, form.customer_id, form.part_serial_number, { enabled: productCustomer }))}
               />
             </Field>
-            <Field label="Order Type">
+            <Field name="order_type" label="Order Type" required>
               <SelectInput
                 value={form.order_type}
                 onChange={handleField('order_type')}
                 disabled={readOnly}
-                options={['Labour', 'Manufacturing']}
+                options={ORDER_TYPES}
               />
             </Field>
+            {delivery.supported && (
+              <Field name="delivery_address_id" label="Deliver To">
+                <SearchableSelect
+                  value={String(form.delivery_address_id ?? '')}
+                  onChange={handleField('delivery_address_id')}
+                  disabled={readOnly}
+                  options={deliverToOptions(
+                    delivery.addresses,
+                    form.customer_id,
+                    records.find((r) => r.order_line_id === form.order_line_id)?.delivery_address_id ?? null,
+                  )}
+                />
+              </Field>
+            )}
             <Field label="PO Line No.">
               <TextInput
                 value={form.customer_po_line_no}
@@ -686,7 +854,7 @@ export default function CustomerOrderScreen() {
 
         <RecordsList
           title="Customer Orders List"
-          columns={LIST_COLUMNS}
+          columns={listColumns}
           rows={filteredRecords}
           loading={loading}
           error={error}

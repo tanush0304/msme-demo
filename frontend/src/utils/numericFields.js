@@ -121,17 +121,24 @@ export function validateNumber(value, { label = 'Value', required = false, integ
   return null
 }
 
+export const PHONE_MESSAGE = 'Enter a valid 10-digit mobile or a landline with STD code (e.g. 080-23456789).'
+
 /**
- * Indian mobile number: optional "+91" / "91" / leading "0", spaces and dashes
- * allowed; must leave exactly 10 digits starting 6-9.
- * Returns { value, error }: value is the cleaned 10 digits ('' when blank).
+ * Indian phone number: either a mobile (10 digits starting 6-9, optional
+ * "+91" / "91" / leading "0") or a landline with STD code (starts with 0,
+ * 10-11 digits). Spaces, dashes and brackets are ignored.
+ * Returns { value, error }: value is the cleaned digits -- mobile as 10
+ * digits, landline with its leading 0 ('' when blank).
  */
-export function validateMobile(raw, { label = 'Mobile Number', required = false } = {}) {
+export function validatePhone(raw, { label = 'Mobile Number', required = false } = {}) {
   if (isBlank(raw)) return { value: '', error: required ? `${label} is required.` : null }
-  let s = String(raw).trim().replace(/[\s-]/g, '')
-  if (s.startsWith('+91')) s = s.slice(3)
-  else if (s.length === 12 && s.startsWith('91')) s = s.slice(2)
-  else if (s.length === 11 && s.startsWith('0')) s = s.slice(1)
-  if (!/^[6-9]\d{9}$/.test(s)) return { value: s, error: `${label} must be a 10-digit mobile number starting with 6-9.` }
-  return { value: s, error: null }
+  const s = String(raw).trim().replace(/[\s\-()]/g, '')
+  // "080-2345 6789" / "(0821) 234567": a separated 3-5 digit STD group means
+  // landline, even when the digits would also read as 0 + a mobile.
+  const stdGroup = /^\(?0\d{2,4}(?:\)|[\s-])/.test(String(raw).trim())
+  if (stdGroup && /^0\d{9,10}$/.test(s)) return { value: s, error: null }
+  const mobile = /^(?:\+91|91|0)?([6-9]\d{9})$/.exec(s)
+  if (mobile) return { value: mobile[1], error: null }
+  if (/^0\d{9,10}$/.test(s)) return { value: s, error: null }
+  return { value: s, error: PHONE_MESSAGE }
 }

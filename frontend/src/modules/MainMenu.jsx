@@ -10,6 +10,7 @@ import {
   Wrench,
 } from 'lucide-react'
 import { AppBar } from '../components/PageHeader'
+import AlertBell from '../components/alerts/AlertBell'
 import ModuleCard from '../components/ModuleCard'
 import { moduleTheme } from '../theme/moduleTheme'
 import { NAV_ITEMS } from '../utils/constants'
@@ -39,6 +40,7 @@ export default function MainMenu({ role, onNavigate, onSignOut }) {
               <House size={17} aria-hidden="true" /> Home
             </button>
           </nav>
+          <AlertBell />
           <button onClick={onSignOut} className="rounded-md border border-[#CBD5E1] bg-white px-3 py-2 text-xs font-medium text-[#465D73] transition hover:border-[#176FA8] hover:text-[#176FA8] focus:outline-none focus:ring-2 focus:ring-[#176FA8]/25 sm:text-sm">
             Sign out
           </button>
@@ -57,7 +59,8 @@ export default function MainMenu({ role, onNavigate, onSignOut }) {
       </section>
 
       <section aria-label="System modules" className="mx-auto grid w-full max-w-[1400px] auto-rows-[minmax(150px,auto)] grid-cols-1 gap-4 px-5 py-6 sm:grid-cols-2 sm:px-8 lg:grid-cols-4">
-        {MODULES.map((module) => {
+        {/* Restricted modules are hidden, not greyed (2026-11-13, same as the client app). */}
+        {MODULES.filter((module) => !isLocked(module.key)).map((module) => {
           const locked = isLocked(module.key)
           return (
             <ModuleCard

@@ -18,7 +18,7 @@ import { listMachines } from '../../data/queries/machines'
 import { machineOptionLabel } from '../../utils/machineLabel'
 import { BUILT_IN_FREQUENCIES, addFrequency, isBuiltInFrequency, parseIntervalDays, withIntervalDays } from '../../utils/maintenanceFrequency'
 import Banner from '../../components/Banner'
-import { CHECKLIST_FREQUENCIES } from '../../utils/dailyChecklist'
+import { CHECKLIST_FREQUENCIES, frequencyLabel } from '../../utils/dailyChecklist'
 import { useDeleteConfirm, labelOf } from '../../components/ConfirmDialog'
 
 const EMPTY_FORM = { id: '', machine_id: '', checklist_item: '', frequency: '', remarks: '' }
@@ -64,7 +64,8 @@ export default function MaintenanceMaster() {
       const [items, schedules, machs] = await Promise.all([
         listMaintenanceChecklist(), listMaintenanceSchedules(), listMachines(),
       ])
-      setRecords(items)
+      // D / W / M codes shown (and re-saved on edit) as Daily / Weekly / Monthly.
+      setRecords(items.map((r) => ({ ...r, frequency: frequencyLabel(r.frequency) || null })))
       setScheduleRecords(schedules)
       setMachines(machs)
     } catch (e) {
@@ -93,7 +94,7 @@ export default function MaintenanceMaster() {
     setSaving(true)
     setSaveError(null)
     try {
-      const payload = { machine_id: form.machine_id || null, checklist_item: checklistItem, frequency: String(form.frequency ?? '').trim() || null, remarks: String(form.remarks ?? '').trim() || null }
+      const payload = { machine_id: form.machine_id || null, checklist_item: checklistItem, frequency: frequencyLabel(form.frequency) || null, remarks: String(form.remarks ?? '').trim() || null }
       if (mode === 'edit') await updateMaintenanceChecklistItem(form.id, payload)
       else await createMaintenanceChecklistItem(payload)
       await refresh()
@@ -238,7 +239,7 @@ export default function MaintenanceMaster() {
           {/* Which Type of Maintenance this item belongs to (Checklist Entry and
               the Data Entry daily gate filter on it). */}
           <Field label="Frequency">
-            <SelectWithAddNew value={form.frequency ?? ''} onChange={handleField('frequency')} disabled={readOnly} options={mergeOptions(CHECKLIST_FREQUENCIES, records.map((r) => r.frequency))} placeholder="Type new frequency" />
+            <SelectWithAddNew value={form.frequency ?? ''} onChange={handleField('frequency')} disabled={readOnly} options={mergeOptions(CHECKLIST_FREQUENCIES, records.map((r) => frequencyLabel(r.frequency)))} placeholder="Type new frequency" />
           </Field>
           <Field label="Remarks" width="long"><TextInput value={form.remarks} onChange={handleField('remarks')} disabled={readOnly} /></Field>
         </FormSection>

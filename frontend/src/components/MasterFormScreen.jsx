@@ -6,7 +6,7 @@ import RecordsList from './RecordsList'
 import TimeInput12 from './TimeInput12'
 import SelectWithAddNew, { mergeOptions } from './SelectWithAddNew'
 import { exportToCsv, exportToPdf } from '../utils/exportUtils'
-import { withTypedFields, typedKeysFromFields, validateMobile, validateNumber } from '../utils/numericFields'
+import { withTypedFields, typedKeysFromFields, validatePhone, validateNumber } from '../utils/numericFields'
 import { trimTextFields, requiredMissing, codeTooLong, duplicateCodeError } from '../utils/masterValidation'
 import Banner from './Banner'
 import { FieldErrorProvider, useFieldError } from './FieldError'
@@ -50,6 +50,7 @@ export default function MasterFormScreen({
   exportFilename,
   recordType = 'record',
   nameField,
+  renderAfterSections, // optional ({ form, mode, nextNumber }) => extra card(s) under the sections (own save); nextNumber = sections.length + 1
 }) {
   const [records, setRecords] = useState([])
   const del = useDeleteConfirm()
@@ -121,7 +122,7 @@ export default function MasterFormScreen({
     }
     for (const f of fields) {
       if (f.mobile) {
-        const { value, error } = validateMobile(cleaned[f.key], { label: f.label, required: f.required })
+        const { value, error } = validatePhone(cleaned[f.key], { label: f.label, required: f.required })
         if (error) return { error, field: f.key }
         cleaned[f.key] = value
       }
@@ -262,6 +263,8 @@ export default function MasterFormScreen({
             </div>
           ))}
         </div>
+
+        {renderAfterSections?.({ form, mode, nextNumber: sections.length + 1 })}
 
         <RecordsList
           title={`${title} List`}

@@ -1,4 +1,5 @@
 import pragatiUnnatiLogo from '../assets/pragati-unnati-logo.png'
+import AlertBell from './alerts/AlertBell'
 import { CLIENT_LOGO, CLIENT_NAME } from '../utils/constants'
 import { createContext, useContext } from 'react'
 import { ChevronRight } from 'lucide-react'
@@ -77,7 +78,10 @@ function BandHeader({ title, subtitle, breadcrumb, size }) {
   const showTitle = !(theme.moduleName && title === theme.moduleName)
   return (
     <div className="shrink-0">
-      <AppBar compactLogo title={theme.moduleName || undefined} titleColor={theme.moduleName ? theme.title : undefined} />
+      <AppBar compactLogo title={theme.moduleName || undefined} titleColor={theme.moduleName ? theme.title : undefined}>
+        {/* Supervisor/admin reminders; renders nothing for operators. */}
+        <AlertBell className="mr-4 sm:mr-6" />
+      </AppBar>
       {breadcrumb?.length > 0 && (
         <nav aria-label="Breadcrumb" className="flex items-center gap-1 border-b border-slate-200/80 bg-white/70 px-4 py-1.5 text-[12px] text-slate-700 sm:px-6">
           {breadcrumb.map((crumb, i) => {

@@ -1,7 +1,7 @@
 // Shared checks for master screens: trim, required-after-trim, code length
 // and case-insensitive duplicate codes. Codes keep the case the user typed.
 
-import { validateMobile, validateNumber, NUMBER_RULES } from './numericFields'
+import { validatePhone, validateNumber, NUMBER_RULES } from './numericFields'
 
 export const MAX_CODE_LENGTH = 30
 
@@ -41,7 +41,7 @@ export function duplicateCodeError(code, existingCodes) {
  *   codeKey / codeLabel  -- the typed primary code (length + duplicate, new only),
  *   required: [{ key, label }], requiredMessage (shown when any is blank),
  *   numbers: [{ key, label, rule }], mobiles: [{ key, label, required }].
- * Returns { error } or { cleaned } (trimmed; mobiles reduced to 10 digits).
+ * Returns { error, field } (field = key of the bad field) or { cleaned } (trimmed; phones reduced to cleaned digits).
  */
 export function checkMaster({ form, mode, records = [], codeKey, codeLabel = 'Code', required = [], requiredMessage, numbers = [], mobiles = [] }) {
   const cleaned = trimTextFields(form)
@@ -56,7 +56,7 @@ export function checkMaster({ form, mode, records = [], codeKey, codeLabel = 'Co
     if (error) return { error, field: key }
   }
   for (const { key, label, required: req } of mobiles) {
-    const { value, error } = validateMobile(cleaned[key], { label, required: req })
+    const { value, error } = validatePhone(cleaned[key], { label, required: req })
     if (error) return { error, field: key }
     cleaned[key] = value
   }

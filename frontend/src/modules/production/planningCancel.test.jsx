@@ -13,7 +13,9 @@ const { PLANS, cancel, none } = vi.hoisted(() => ({
   cancel: vi.fn(),
   none: async () => [],
 }))
-vi.mock('../../data/queries/productionPlanning', () => ({ listOrdersAvailableForPlanning: async () => [], listProductionPlans: async () => PLANS }))
+vi.mock('../../data/queries/openPo', () => ({ openPoSupported: async () => false, listLineStatuses: async () => [] }))
+vi.mock('../../data/queries/deliveryAddresses',() => ({ deliveryAddressesSupported: async () => false, listDeliveryAddresses: async () => [] }))
+vi.mock('../../data/queries/productionPlanning',() => ({ listOrdersAvailableForPlanning: async () => [], listProductionPlans: async () => PLANS }))
 vi.mock('../../data/queries/productionBatch', () => ({ listProductionBatches: none }))
 vi.mock('../../data/queries/customers', () => ({ listCustomers: none }))
 vi.mock('../../data/queries/customerPoHeaders', () => ({ listPoHeaders: none }))

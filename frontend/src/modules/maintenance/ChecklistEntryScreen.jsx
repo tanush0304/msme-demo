@@ -23,7 +23,7 @@ import {
   updateMaintenanceLogItem,
   listMaintenanceLogsForShift,
 } from '../../data/queries/maintenanceLogs'
-import { DAILY, sameFrequency, itemsForType, noItemsMessage, conditionFromTick, isTicked, findLogFor } from '../../utils/dailyChecklist'
+import { DAILY, sameFrequency, frequencyLabel, itemsForEntry, isUntagged, noItemsMessage, conditionFromTick, isTicked, findLogFor } from '../../utils/dailyChecklist'
 import { canEditStock } from '../../utils/stockEdit'
 import { useAppUsers, withEditedLabels, EDITED_COLUMN } from '../../components/StockEditPanel'
 import Banner from '../../components/Banner'
@@ -200,10 +200,11 @@ export default function ChecklistEntryScreen({ role }) {
     return null
   }
 
-  // Only the machine's items whose frequency matches the Type of Maintenance.
-  const shownItems = machineId && maintenanceType ? itemsForType(checklistItems, maintenanceType) : []
+  // The machine's items for the Type of Maintenance: tagged with that type +
+  // untagged ones (no frequency yet -- shown under every type).
+  const shownItems = machineId && maintenanceType ? itemsForEntry(checklistItems, maintenanceType) : []
   const machineRow = machines.find((m) => m.machine_id === machineId)
-  const maintenanceTypeOptions = mergeOptions(MAINTENANCE_TYPES, recentLogs.map((l) => l.maintenance_type))
+  const maintenanceTypeOptions = mergeOptions(MAINTENANCE_TYPES, recentLogs.map((l) => frequencyLabel(l.maintenance_type)))
   const filteredRecentLogs = withEditedLabels(recentLogs, appUsers).filter((l) => {
     if (!search) return true
     return l.machine_id?.toLowerCase().includes(search.toLowerCase())
@@ -241,14 +242,14 @@ export default function ChecklistEntryScreen({ role }) {
           <Field label="Machine" required>
             <SearchableSelect value={machineId} onChange={handleMachineChange} disabled={!!activeLog} options={machines.map((m) => ({ value: m.machine_id, label: machineOptionLabel(m) }))} />
           </Field>
-          <Field label="Maintenance Engineer" required>
-            <EmployeeSelect employees={employees} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} disabled={!!activeLog} />
+          <Field label="Date" required>
+            <TextInput type="date" value={logDate} onChange={(e) => setLogDate(e.target.value)} disabled={!!activeLog} />
           </Field>
           <Field label="Shift" required>
             <SelectInput value={shiftCode} onChange={(e) => setShiftCode(e.target.value)} disabled={!!activeLog} options={shifts.map((s) => s.shift_code)} />
           </Field>
-          <Field label="Date" required>
-            <TextInput type="date" value={logDate} onChange={(e) => setLogDate(e.target.value)} disabled={!!activeLog} />
+          <Field label="Maintenance Engineer" required>
+            <EmployeeSelect employees={employees} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} disabled={!!activeLog} />
           </Field>
           <Field label="Type of Maintenance">
             <SelectWithAddNew
@@ -275,7 +276,10 @@ export default function ChecklistEntryScreen({ role }) {
                 return (
                   <div key={item.id} className="grid grid-cols-1 sm:grid-cols-5 gap-2 p-4 items-end">
                     <div className="sm:col-span-1">
-                      <p className="text-sm font-medium text-gray-700">{item.checklist_item}</p>
+                      <p className="text-sm font-medium text-gray-700">
+                        {item.checklist_item}
+                        {isUntagged(item) && <span className="ml-1.5 text-xs font-normal text-gray-400">(no frequency set)</span>}
+                      </p>
                     </div>
                     <label className="flex items-center gap-2 pb-2 text-sm text-gray-700">
                       <input
@@ -390,11 +394,11 @@ function VisitEditPanel({ log, machines, employees, shifts, maintenanceTypeOptio
       <Field label="Date">
         <AutoFillBox value={log.log_date ?? ''} />
       </Field>
-      <Field label="Maintenance Engineer" required>
-        <EmployeeSelect employees={employees} value={header.employee_id} onChange={(e) => setHeader((h) => ({ ...h, employee_id: e.target.value }))} />
-      </Field>
       <Field label="Shift" required>
         <SelectInput value={header.shift_code} onChange={(e) => setHeader((h) => ({ ...h, shift_code: e.target.value }))} options={shifts.map((s) => s.shift_code)} />
+      </Field>
+      <Field label="Maintenance Engineer" required>
+        <EmployeeSelect employees={employees} value={header.employee_id} onChange={(e) => setHeader((h) => ({ ...h, employee_id: e.target.value }))} />
       </Field>
       <Field label="Type of Maintenance">
         <SelectWithAddNew value={header.maintenance_type} onChange={(e) => setHeader((h) => ({ ...h, maintenance_type: e.target.value }))} options={maintenanceTypeOptions} />
