@@ -48,6 +48,8 @@ import { dbErrorMessage } from '../../utils/dbErrors'
 import StageStartGuard from '../../components/StageStartGuard'
 import { earlierIncompleteStage, canStartStage, runningBanner } from '../../utils/stageStartGuard'
 import Banner from '../../components/Banner'
+import StageCompleteControl from '../../components/StageCompleteControl'
+import { materialAvailableText } from '../../utils/stageReopen'
 import OrderLineFields from '../../components/OrderLineFields'
 import { orderLineSuffix } from '../../utils/deliveryAddress'
 
@@ -84,6 +86,7 @@ export default function ManualOperationsScreen({ role }) {
   const [confirmEarlier, setConfirmEarlier] = useState(false)
   const [stageTarget, setStageTarget] = useState(null)
   const [stageOutputSoFar, setStageOutputSoFar] = useState(0)
+  const [stageAcceptedSoFar, setStageAcceptedSoFar] = useState(0) // for the Mark Complete prompt
   const [resolving, setResolving] = useState(false)
   // True while this login's open log is being restored on screen open; with
   // `loading` it locks Employee / PRD / Stage (no second selection may race
@@ -188,6 +191,7 @@ export default function ManualOperationsScreen({ role }) {
     setPlannedQty(null)
     setStageTarget(null)
     setStageOutputSoFar(0)
+    setStageAcceptedSoFar(0)
     setActiveLog(null)
     if (!prd) {
       gate.start() // drop any resolve still in flight for the previous PRD
@@ -230,6 +234,7 @@ export default function ManualOperationsScreen({ role }) {
       setPlannedQty(availability[stage.id] ?? 0)
       setStageTarget(targets[stage.id] ?? 0)
       setStageOutputSoFar(aggregates[stage.id]?.output ?? 0)
+      setStageAcceptedSoFar(aggregates[stage.id]?.accepted ?? 0)
 
       if (openLog) {
         // Resume: keep logging against the log that already reserved this
@@ -285,6 +290,7 @@ export default function ManualOperationsScreen({ role }) {
     setTotals(await getLogTotals(activeLog.id))
     const aggregates = await getStageAggregatesForPrd(prdNo)
     setStageOutputSoFar(aggregates[resolvedStage.id]?.output ?? 0)
+    setStageAcceptedSoFar(aggregates[resolvedStage.id]?.accepted ?? 0)
   }
 
   // Migration 010: each hour row now carries its own log_date/shift_code/
@@ -389,6 +395,7 @@ export default function ManualOperationsScreen({ role }) {
     setPlannedQty(null)
     setStageTarget(null)
     setStageOutputSoFar(0)
+    setStageAcceptedSoFar(0)
     setActiveLog(null)
     setLogHours([])
     setTotals(null)
@@ -407,6 +414,9 @@ export default function ManualOperationsScreen({ role }) {
     lunch_break_duration: shifts.find((x) => x.shift_code === shiftCode)?.lunch_break_duration ?? '',
   }
   const canOvertime = role === 'supervisor' || role === 'admin'
+
+  // Display only: the same availability Start uses; with an open log, its own reservation.
+  const materialText = materialAvailableText({ target: stageTarget, available: plannedQty, reserved: activeLog?.planned_qty, logOpen: !!activeLog })
 
   // Footer totals update live while hour rows are typed: every saved hour of
   // the log + unsaved rows (same rule as the "production log totals" view).
@@ -595,6 +605,9 @@ export default function ManualOperationsScreen({ role }) {
           <div className="bg-white border border-gray-200 rounded-md px-4 py-3 flex items-center justify-between gap-4">
             <p className="text-sm text-gray-600">
               Stage output so far: <strong>{stageOutputSoFar}</strong> / target <strong>{stageTarget}</strong>
+              {materialText && (
+                <span className="ml-3 text-gray-500" data-testid="material-available">{materialText}</span>
+              )}
             </p>
             <div className="flex items-center gap-2">
             {activeLog && (
@@ -607,16 +620,16 @@ export default function ManualOperationsScreen({ role }) {
                 {endingLog ? 'Ending...' : 'End Log'}
               </button>
             )}
-            {stageOutputSoFar >= stageTarget && stageTarget > 0 && (
-              <button
-                onClick={handleMarkComplete}
-                disabled={completing}
-                className="inline-flex items-center gap-1.5 bg-brandblue text-white rounded px-3 py-1.5 text-sm font-medium disabled:opacity-40 hover:bg-brandnavy"
-              >
-                <CheckCircle2 size={15} />
-                {completing ? 'Marking Complete...' : 'Mark Stage Complete'}
-              </button>
-            )}
+            <StageCompleteControl
+              stage={resolvedStage}
+              output={stageOutputSoFar}
+              target={stageTarget}
+              accepted={stageAcceptedSoFar}
+              role={role}
+              completing={completing}
+              onComplete={handleMarkComplete}
+              promptKey={activeLog ? `${activeLog.id}|${resolvedStage?.id}` : ''}
+            />
             </div>
           </div>
         )}
