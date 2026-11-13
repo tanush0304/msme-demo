@@ -1,4 +1,10 @@
+import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts'
+import { ChevronDown, FileSpreadsheet, Maximize2, X } from 'lucide-react'
+import { toPng } from 'html-to-image'
+import { exportToCsv } from '../../utils/exportUtils'
+import { EXPORT_EXCLUDE_ATTR, pngFilter, chartFileName, exportedLine, downloadDataUrl } from '../../utils/chartExport'
 
 // Shared series colours (same blues/greens/ambers/reds as the KPI tones).
 export const CHART_COLORS = {
@@ -78,44 +84,243 @@ export function DonutChart({ data, centre, legendValue, tooltip }) {
   )
 }
 
+/** Expand + Export ▾ (PNG / Excel) for one chart. Marked EXPORT_EXCLUDE_ATTR,
+ * so the PNG never shows them (or the open menu). Export only with `exportData`. */
+function ChartTools({ canAct, onExpand, hasExport, onPng, onExcel, busy, onDark }) {
+  const [open, setOpen] = useState(false)
+  const wrapRef = useRef(null)
+  useEffect(() => {
+    if (!open) return undefined
+    const onDown = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [open])
+  const run = (fn) => {
+    setOpen(false)
+    fn()
+  }
+  return (
+    <div className="flex shrink-0 items-center gap-1.5" {...{ [EXPORT_EXCLUDE_ATTR]: '' }}>
+      <button
+        type="button"
+        onClick={onExpand}
+        disabled={!canAct}
+        title="Expand"
+        aria-label="Expand chart"
+        className={`inline-flex h-7 w-7 items-center justify-center rounded-md border disabled:opacity-50 ${
+          onDark ? 'border-white/60 bg-white/15 text-white hover:bg-white/25' : 'border-[#CBDAEE] bg-white text-brandblue hover:bg-[#E3F0FD]'
+        }`}
+      >
+        <Maximize2 size={13} />
+      </button>
+      {hasExport && (
+        <div className="relative" ref={wrapRef}>
+          <button
+            type="button"
+            onClick={() => setOpen((o) => !o)}
+            disabled={!canAct || busy}
+            aria-haspopup="menu"
+            aria-expanded={open}
+            className="inline-flex h-7 items-center gap-1 rounded-md bg-[#15803D] px-2.5 text-[12px] font-semibold text-white shadow-sm hover:bg-[#166534] disabled:opacity-50"
+          >
+            <FileSpreadsheet size={13} /> Export <ChevronDown size={12} />
+          </button>
+          {open && (
+            <div role="menu" className="absolute right-0 z-20 mt-1 w-32 overflow-hidden rounded-lg border border-[#CFE2F8] bg-white shadow-lg">
+              <button type="button" role="menuitem" className="block w-full px-3 py-2 text-left text-[13px] text-slate-800 hover:bg-[#E3F0FD]" onClick={() => run(onPng)}>
+                PNG
+              </button>
+              <button type="button" role="menuitem" className="block w-full px-3 py-2 text-left text-[13px] text-slate-800 hover:bg-[#E3F0FD]" onClick={() => run(onExcel)}>
+                Excel
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 /** Titled white card around one Recharts chart; shows loading / empty text
  * instead of an empty plot. Default title row = small blue icon box + bold
  * navy title; `headerColor` instead gives a solid coloured bar with a white
  * title (Daily Machine categories). `children` = a single Recharts chart,
  * or with `raw` any content that sizes itself (e.g. DonutChart).
- * `emptyText` replaces the default empty message. */
-export default function ChartCard({ title, icon: Icon, headerColor, actions, loading, empty, emptyText = 'No data for this period.', height = 240, raw = false, children }) {
-  return (
-    <section className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-[#D6E4F5] bg-white shadow-[0_2px_6px_rgba(16,60,120,0.08)]">
-      {headerColor ? (
-        <div className="flex items-center gap-2 px-4 py-2.5" style={{ backgroundColor: headerColor }}>
-          <h2 className="text-[17px] font-bold text-white">{title}</h2>
-          {actions && <div className="ml-auto">{actions}</div>}
-        </div>
+ * `emptyText` replaces the default empty message.
+ *
+ * Expand (always) opens the chart in a ~90 % viewport modal, re-rendered at
+ * full size (same children, title, filter line). Export ▾ (with `exportData`):
+ *   PNG   -- the card (title, `filterText`, "Exported DD-MM-YYYY"; buttons and
+ *            menu left out via pngFilter), html-to-image
+ *   Excel -- `exportData` { columns: [{ key, label }], rows } as CSV
+ *   file  -- "<screen>_<exportKey>_<YYYY-MM-DD>.png / .csv"
+ * Both are disabled while loading or empty. Exports only use the rows the
+ * chart already draws (the screen's filters and the user's own access). */
+export default function ChartCard({
+  title,
+  icon: Icon,
+  headerColor,
+  actions,
+  loading,
+  empty,
+  emptyText = 'No data for this period.',
+  height = 240,
+  raw = false,
+  screen,
+  exportKey,
+  exportData,
+  filterText,
+  children,
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState('')
+  const cardRef = useRef(null)
+  const canAct = !loading && !empty
+  const hasExport = !!exportData
+  const fileBase = chartFileName(screen, exportKey || title)
+
+  // Esc closes the modal; the page behind it does not scroll while open.
+  useEffect(() => {
+    if (!expanded) return undefined
+    const onKey = (e) => {
+      if (e.key === 'Escape') setExpanded(false)
+    }
+    document.addEventListener('keydown', onKey)
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prevOverflow
+    }
+  }, [expanded])
+
+  function handleExcel() {
+    if (!canAct || !exportData) return
+    exportToCsv(exportData.columns, exportData.rows, `${fileBase}.csv`)
+  }
+
+  async function handlePng() {
+    if (!canAct || !cardRef.current) return
+    setExportError('')
+    setExporting(true) // shows the "Exported ..." line in the card
+    try {
+      await new Promise((r) => setTimeout(r, 0)) // let that line render first
+      const url = await toPng(cardRef.current, { filter: pngFilter, backgroundColor: '#ffffff', pixelRatio: 2, cacheBust: true })
+      downloadDataUrl(url, `${fileBase}.png`)
+    } catch (e) {
+      setExportError(`Could not create the PNG: ${e?.message ?? e}`)
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const body = (h, big = false) => (
+    <div className={big ? 'min-h-0 flex-1 px-2 py-3' : 'px-2 py-3'} style={big ? undefined : { height: h }}>
+      {loading ? (
+        <div className="flex h-full items-center justify-center text-[13px] text-slate-400">Loading...</div>
+      ) : empty ? (
+        <div className="flex h-full items-center justify-center text-[13px] text-slate-400">{emptyText}</div>
+      ) : raw ? (
+        children
       ) : (
-        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 border-b border-[#E4EEFA] bg-gradient-to-r from-[#EAF3FE] to-white px-3 py-2">
-          {Icon && (
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-brandblue text-white">
-              <Icon size={17} strokeWidth={2.2} />
-            </span>
-          )}
-          <h2 className="text-[16px] font-bold text-[#0B2A5B]">{title}</h2>
-          {actions && <div className="ml-auto min-w-0 max-w-full">{actions}</div>}
-        </div>
+        <ResponsiveContainer width="100%" height="100%">
+          {children}
+        </ResponsiveContainer>
       )}
-      <div className="px-2 py-3" style={{ height }}>
-        {loading ? (
-          <div className="flex h-full items-center justify-center text-[13px] text-slate-400">Loading...</div>
-        ) : empty ? (
-          <div className="flex h-full items-center justify-center text-[13px] text-slate-400">{emptyText}</div>
-        ) : raw ? (
-          children
+    </div>
+  )
+
+  const tools = (onDark) => (
+    <ChartTools
+      canAct={canAct}
+      onExpand={() => setExpanded(true)}
+      hasExport={hasExport}
+      onPng={handlePng}
+      onExcel={handleExcel}
+      busy={exporting}
+      onDark={onDark}
+    />
+  )
+
+  const subline = (filterText || exporting) && (
+    <p className="border-b border-[#E4EEFA] px-3 py-1 text-[12px] text-slate-600" data-testid="chart-subline">
+      {filterText}
+      {exporting && <span className="ml-2 text-slate-500">{filterText ? '· ' : ''}{exportedLine()}</span>}
+    </p>
+  )
+
+  return (
+    <>
+      <section ref={cardRef} className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-[#D6E4F5] bg-white shadow-[0_2px_6px_rgba(16,60,120,0.08)]">
+        {headerColor ? (
+          <div className="flex items-center gap-2 px-4 py-2.5" style={{ backgroundColor: headerColor }}>
+            <h2 className="text-[17px] font-bold text-white">{title}</h2>
+            <div className="ml-auto flex items-center gap-2">
+              {actions}
+              {tools(true)}
+            </div>
+          </div>
         ) : (
-          <ResponsiveContainer width="100%" height="100%">
-            {children}
-          </ResponsiveContainer>
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 border-b border-[#E4EEFA] bg-gradient-to-r from-[#EAF3FE] to-white px-3 py-2">
+            {Icon && (
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-brandblue text-white">
+                <Icon size={17} strokeWidth={2.2} />
+              </span>
+            )}
+            <h2 className="text-[16px] font-bold text-[#0B2A5B]">{title}</h2>
+            <div className="ml-auto flex min-w-0 max-w-full flex-wrap items-center justify-end gap-2">
+              {actions}
+              {tools(false)}
+            </div>
+          </div>
         )}
-      </div>
-    </section>
+        {subline}
+        {exportError && (
+          <p role="alert" className="px-3 py-1 text-[12px] text-red-700" {...{ [EXPORT_EXCLUDE_ATTR]: '' }}>
+            {exportError}
+          </p>
+        )}
+        {body(height)}
+      </section>
+
+      {expanded &&
+        createPortal(
+          <div
+            role="presentation"
+            data-testid="chart-modal-backdrop"
+            onMouseDown={(e) => e.target === e.currentTarget && setExpanded(false)}
+            className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 sm:p-[5vh]"
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label={typeof title === 'string' ? title : 'Chart'}
+              className="flex h-full w-full flex-col overflow-hidden bg-white shadow-2xl sm:h-[90vh] sm:w-[90vw] sm:rounded-xl"
+            >
+              <div className="flex items-start gap-3 border-b border-[#E4EEFA] bg-gradient-to-r from-[#EAF3FE] to-white px-4 py-3">
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-[18px] font-bold text-[#0B2A5B]">{title}</h2>
+                  {filterText && <p className="mt-0.5 text-[12px] text-slate-600">{filterText}</p>}
+                </div>
+                {actions && <div className="min-w-0">{actions}</div>}
+                <button
+                  type="button"
+                  onClick={() => setExpanded(false)}
+                  aria-label="Close"
+                  title="Close"
+                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#CBDAEE] bg-white text-slate-600 hover:bg-[#E3F0FD]"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+              {body(null, true)}
+            </div>
+          </div>,
+          document.body,
+        )}
+    </>
   )
 }

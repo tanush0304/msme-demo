@@ -19,6 +19,9 @@ import { monthLabel } from '../../utils/reportOrders'
 import useReportPeriod from '../../components/reports/useReportPeriod'
 import { MANUAL_LABEL, pct, trendBuckets, productionStatusRows, productionStatusKpis, dailyTrend, byMachine, isTargetRow, prdProducedKpis } from '../../utils/reportAggregates'
 import Banner from '../../components/Banner'
+import { reportFilterText, seriesExportData } from '../../utils/chartExport'
+
+const SCREEN = 'Production_Status'
 import { listOrdersByPrd } from '../../data/queries/customerOrders'
 import { getStagesForPrd } from '../../data/queries/routeCards'
 import { getStageAggregatesForPrd } from '../../data/queries/productionLogs'
@@ -115,6 +118,14 @@ export default function ProductionStatusScreen() {
     [rows, applied.from, applied.to, goodVsTarget]
   )
   const machines = useMemo(() => byMachine(rows), [rows])
+  // Chart export: the applied period + filters, as labels.
+  const filterText = reportFilterText(applied, [
+    { label: 'PRD No', key: 'prdNo' },
+    { label: 'Machine', key: 'machineId', options: options.machines.map((m) => ({ value: m.machine_id, label: machineOptionLabel(m) })) },
+    { label: 'Shift', key: 'shiftCode' },
+    { label: 'Operator', key: 'employeeId', options: sortedEmployeeOptions(options.employees) },
+  ])
+  const chartProps = { screen: SCREEN, filterText }
   const totalsRow = useMemo(
     () => ({ prd_no: 'Total', required_qty: kpis.required, standard: kpis.standard, produced: kpis.produced, efficiency_pct: kpis.efficiency_pct, rejected: kpis.rejected, reject_pct: kpis.reject_pct, rework: kpis.rework, rework_pct: kpis.rework_pct }),
     [kpis]
@@ -156,7 +167,17 @@ export default function ProductionStatusScreen() {
         )}
 
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
-          <ChartCard title={`${goodVsTarget ? 'Good vs Target' : 'Produced vs Standard'} (${trend.length && trend[0].date.length === 7 ? 'Monthly' : 'Daily'})`} icon={TrendingUp} loading={loading} empty={empty}>
+          <ChartCard title={`${goodVsTarget ? 'Good vs Target' : 'Produced vs Standard'} (${trend.length && trend[0].date.length === 7 ? 'Monthly' : 'Daily'})`}
+            icon={TrendingUp}
+            loading={loading}
+            empty={empty}
+            {...chartProps}
+            exportKey={goodVsTarget ? 'Good_vs_Target' : 'Produced_vs_Standard'}
+            exportData={seriesExportData(trend, 'label', trend.length && trend[0].date.length === 7 ? 'Month' : 'Date', [
+              { key: 'standard', label: goodVsTarget ? 'Target Qty' : 'Standard Qty' },
+              goodVsTarget ? { key: 'good', label: 'Good Qty' } : { key: 'produced', label: 'Produced Qty' },
+            ])}
+          >
             <ComposedChart data={trend} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
               <XAxis dataKey="label" tick={AXIS_TICK} minTickGap={12} />
@@ -170,7 +191,15 @@ export default function ProductionStatusScreen() {
             </ComposedChart>
           </ChartCard>
 
-          <ChartCard title="Production Efficiency (By Machine)" icon={Gauge} loading={loading} empty={empty}>
+          <ChartCard
+            title="Production Efficiency (By Machine)"
+            icon={Gauge}
+            loading={loading}
+            empty={empty}
+            {...chartProps}
+            exportKey="Efficiency_By_Machine"
+            exportData={seriesExportData(machines, 'machine_name', 'Machine', [{ key: 'efficiency_pct', label: 'Efficiency %' }])}
+          >
             <ComposedChart data={machines} margin={{ top: 20, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
               <XAxis dataKey="machine_name" tick={AXIS_TICK} interval={0} />
@@ -186,7 +215,18 @@ export default function ProductionStatusScreen() {
             </ComposedChart>
           </ChartCard>
 
-          <ChartCard title="Reject vs Rework Quantity" icon={Recycle} loading={loading} empty={empty}>
+          <ChartCard
+            title="Reject vs Rework Quantity"
+            icon={Recycle}
+            loading={loading}
+            empty={empty}
+            {...chartProps}
+            exportKey="Reject_vs_Rework"
+            exportData={seriesExportData(machines, 'machine_name', 'Machine', [
+              { key: 'rejected', label: 'Reject Quantity' },
+              { key: 'rework', label: 'Rework Quantity' },
+            ])}
+          >
             <ComposedChart data={machines} margin={{ top: 20, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
               <XAxis dataKey="machine_name" tick={AXIS_TICK} interval={0} />

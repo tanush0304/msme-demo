@@ -16,6 +16,9 @@ import { Field } from '../../components/FormSection'
 import SearchableSelect from '../../components/SearchableSelect'
 import { machineOptionLabel } from '../../utils/machineLabel'
 import Banner from '../../components/Banner'
+import { seriesExportData } from '../../utils/chartExport'
+
+const SCREEN = 'Daily_Machine'
 
 const DAYS_SHOWN = 5
 
@@ -187,7 +190,26 @@ export default function DailyMachineScreen() {
             const lineColour = categoryLineColor(ci)
             const data = matrix.map((d) => ({ label: shortDate(d.date), produced: d.byCategory[c].produced, efficiency: d.byCategory[c].efficiency_pct }))
             return (
-              <ChartCard key={c} title={selectedMachine ? `${machineOptionLabel(selectedMachine)} · ${c}` : c} headerColor={colour} loading={loading} empty={data.every((d) => d.produced === 0)} height={230}>
+              <ChartCard
+                key={c}
+                title={selectedMachine ? `${machineOptionLabel(selectedMachine)} · ${c}` : c}
+                headerColor={colour}
+                loading={loading}
+                empty={data.every((d) => d.produced === 0)}
+                height={230}
+                screen={SCREEN}
+                exportKey={c}
+                filterText={`${displayDate(days[0])} to ${displayDate(date)}${selectedMachine ? ` · Machine: ${machineOptionLabel(selectedMachine)}` : ''}`}
+                exportData={seriesExportData(
+                  matrix.map((d) => ({ date: displayDate(d.date), produced: d.byCategory[c].produced, efficiency: d.byCategory[c].efficiency_pct })),
+                  'date',
+                  'Date',
+                  [
+                    { key: 'produced', label: 'Production (Nos)' },
+                    { key: 'efficiency', label: 'Efficiency %' },
+                  ],
+                )}
+              >
                 <ComposedChart data={data} margin={{ top: 18, right: 4, left: 0, bottom: 0 }}>
                   <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
                   <XAxis dataKey="label" tick={AXIS_TICK} />

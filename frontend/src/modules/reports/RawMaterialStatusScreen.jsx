@@ -16,6 +16,9 @@ import { displayDate, previousRange } from '../../utils/reportPeriods'
 import { changePct } from '../../utils/reportAggregates'
 import { stockMovement, topN, sumByUom, dominantUom, rmMatchesFilters } from '../../utils/reportStock'
 import Banner from '../../components/Banner'
+import { reportFilterText, donutExportData, seriesExportData } from '../../utils/chartExport'
+
+const SCREEN = 'Raw_Material_Status'
 
 const SERIES = [CHART_COLORS.blue, CHART_COLORS.green, CHART_COLORS.orange, CHART_COLORS.purple, CHART_COLORS.red, '#64748B']
 const partsClass = (v) => (v == null ? '' : v <= 0 ? 'bg-red-100' : 'bg-green-100')
@@ -215,6 +218,20 @@ export default function RawMaterialStatusScreen() {
     { key: 'parts', label: 'Total Parts Material Available', align: 'right', format: formatQty, cellClass: partsClass },
   ]
   const unitLabel = chartUom ? ` (${chartUom})` : ''
+  // Chart export: the applied period + filters (+ the chart unit), as labels.
+  const chartProps = {
+    screen: SCREEN,
+    filterText: [
+      reportFilterText(r.applied, [
+        { label: 'Supplier', key: 'supplier' },
+        { label: 'Grade', key: 'grade' },
+        { label: 'RM Type', key: 'rmType' },
+        { label: 'UOM', key: 'uom' },
+        { label: 'RM Code', key: 'rmCode', options: rmCodeOptions },
+      ]),
+      chartUom && !r.applied.uom ? `Unit: ${chartUom}` : '',
+    ].filter(Boolean).join(' · '),
+  }
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
@@ -243,7 +260,21 @@ export default function RawMaterialStatusScreen() {
         </KpiCardRow>
 
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
-          <ChartCard title={`Stock Position by RM Type${unitLabel}`} icon={BarChart3} loading={loading} empty={byType.length === 0} height={260}>
+          <ChartCard
+            title={`Stock Position by RM Type${unitLabel}`}
+            icon={BarChart3}
+            loading={loading}
+            empty={byType.length === 0}
+            height={260}
+            {...chartProps}
+            exportKey="Stock_Position_By_RM_Type"
+            exportData={seriesExportData(byType, 'label', 'RM Type', [
+              { key: 'opening', label: `Opening Stock${unitLabel}` },
+              { key: 'receipts', label: `Receipts${unitLabel}` },
+              { key: 'issues', label: `Issues${unitLabel}` },
+              { key: 'closing', label: `Closing Stock${unitLabel}` },
+            ])}
+          >
             <ComposedChart data={byType} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
               <XAxis dataKey="label" tick={AXIS_TICK} interval={0} />
@@ -257,7 +288,16 @@ export default function RawMaterialStatusScreen() {
             </ComposedChart>
           </ChartCard>
 
-          <ChartCard title={`Receipts by Supplier (Top 5)${unitLabel}`} icon={Users} loading={loading} empty={bySupplier.length === 0} height={260}>
+          <ChartCard
+            title={`Receipts by Supplier (Top 5)${unitLabel}`}
+            icon={Users}
+            loading={loading}
+            empty={bySupplier.length === 0}
+            height={260}
+            {...chartProps}
+            exportKey="Receipts_By_Supplier_Top5"
+            exportData={seriesExportData(bySupplier, 'label', 'Supplier', [{ key: 'value', label: `Receipts${unitLabel}` }])}
+          >
             <ComposedChart data={bySupplier} layout="vertical" margin={{ top: 4, right: 44, left: 8, bottom: 0 }}>
               <CartesianGrid stroke={CHART_COLORS.grid} horizontal={false} />
               <XAxis type="number" tick={AXIS_TICK} />
@@ -275,7 +315,17 @@ export default function RawMaterialStatusScreen() {
             </ComposedChart>
           </ChartCard>
 
-          <ChartCard title="RM Type wise Material Availability (Parts)" icon={PieIcon} loading={loading} empty={partsByType.length === 0} height={260} raw>
+          <ChartCard
+            title="RM Type wise Material Availability (Parts)"
+            icon={PieIcon}
+            loading={loading}
+            empty={partsByType.length === 0}
+            height={260}
+            raw
+            {...chartProps}
+            exportKey="Availability_By_RM_Type_Parts"
+            exportData={donutExportData(partsByType, { labelHeader: 'RM Type', valueHeader: 'Parts Available (Nos)' })}
+          >
             <DonutChart data={partsByType} centre={{ caption: 'Total Parts Available', total: formatQty(partsTotal), unit: 'Nos' }} tooltip={(d) => `${formatQty(d.value)} parts`} />
           </ChartCard>
         </div>

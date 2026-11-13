@@ -24,6 +24,9 @@ import {
   normalizeDefect,
 } from '../../utils/reportComplaints'
 import Banner from '../../components/Banner'
+import { reportFilterText, seriesExportData } from '../../utils/chartExport'
+
+const SCREEN = 'Customer_Complaints'
 
 const SEVERITY_COLORS = { Critical: CHART_COLORS.red, Major: CHART_COLORS.orange, Minor: CHART_COLORS.amber, 'Not set': '#94A3B8' }
 const STATUS_TONES = { Open: 'amber', 'Under Investigation': 'blue', 'Action Pending': 'amber', Resolved: 'blue', Closed: 'green' }
@@ -92,6 +95,14 @@ export default function ComplaintStatusScreen() {
   ]
 
   // One bar/line chart per grouping; `colors` gives per-bar colours (bar mode).
+  // Chart export: the applied period + filters, as labels.
+  const filterText = reportFilterText(r.applied, [
+    { label: 'Customer', key: 'customer', options: customers.map((c) => ({ value: c.customer_id, label: c.customer_name ?? c.customer_id })) },
+    { label: 'Severity', key: 'severity', options: SEVERITY_OPTIONS },
+  ])
+  const countExport = (data, category) => seriesExportData(data, 'label', category, [{ key: 'value', label: 'Complaints' }])
+  const chartProps = { screen: SCREEN, filterText }
+
   const countChart = (data, name, color, colors) => (
     <ComposedChart data={data} margin={{ top: 22, right: 8, left: 0, bottom: 0 }}>
       <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
@@ -132,16 +143,16 @@ export default function ComplaintStatusScreen() {
         </KpiCardRow>
 
         <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
-          <ChartCard title="Complaints by Customer" icon={Users} loading={loading} empty={empty} height={260}>
+          <ChartCard title="Complaints by Customer" icon={Users} loading={loading} empty={empty} height={260} {...chartProps} exportKey="By_Customer" exportData={countExport(byCustomer, 'Customer')}>
             {countChart(byCustomer, 'Complaints', CHART_COLORS.blue)}
           </ChartCard>
-          <ChartCard title="Complaints by Defect Type" icon={Bug} loading={loading} empty={empty} height={260}>
+          <ChartCard title="Complaints by Defect Type" icon={Bug} loading={loading} empty={empty} height={260} {...chartProps} exportKey="By_Defect_Type" exportData={countExport(byDefect, 'Defect Type')}>
             {countChart(byDefect, 'Complaints', CHART_COLORS.purple)}
           </ChartCard>
-          <ChartCard title="Complaints by Part No" icon={Package} loading={loading} empty={empty} height={260}>
+          <ChartCard title="Complaints by Part No" icon={Package} loading={loading} empty={empty} height={260} {...chartProps} exportKey="By_Part_No" exportData={countExport(byPart, 'Part No')}>
             {countChart(byPart, 'Complaints', CHART_COLORS.green)}
           </ChartCard>
-          <ChartCard title="Complaints by Severity" icon={Gauge} loading={loading} empty={empty} height={260}>
+          <ChartCard title="Complaints by Severity" icon={Gauge} loading={loading} empty={empty} height={260} {...chartProps} exportKey="By_Severity" exportData={countExport(bySeverity, 'Severity')}>
             {countChart(bySeverity, 'Complaints', CHART_COLORS.red, SEVERITY_COLORS)}
           </ChartCard>
         </div>

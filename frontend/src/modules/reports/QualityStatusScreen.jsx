@@ -22,6 +22,9 @@ import { daysBetween, shortDate, displayDate } from '../../utils/reportPeriods'
 import { monthLabel } from '../../utils/reportOrders'
 import { inspectionCounts, qualityTrend, toleranceBand, parameterSeries, piecesByInspectionKey, inspectionKey, gaugeSummary } from '../../utils/reportQuality'
 import Banner from '../../components/Banner'
+import { reportFilterText, donutExportData, seriesExportData } from '../../utils/chartExport'
+
+const SCREEN = 'Quality_Status'
 
 const RESULT_TONES = { OK: 'green', NG: 'red', Accepted: 'green', Rejected: 'red', 'No readings': 'amber' }
 const pctText = (v) => (v == null ? '' : `(${v.toFixed(1)}%)`)
@@ -124,6 +127,16 @@ export default function QualityStatusScreen() {
     [readings, inspectionById, partForPrd, part, chartParameter]
   )
   const band = paramSeries.find((p) => p.min != null)
+  // Chart export: the applied period + filters, as labels.
+  const filterText = reportFilterText(r.applied, [
+    { label: 'PRD No', key: 'prdNo' },
+    { label: 'Machine', key: 'machineId', options: opts.machines.map((m) => ({ value: m.machine_id, label: machineOptionLabel(m) })) },
+    { label: 'Quality Parameter', key: 'parameter' },
+    { label: 'Shift', key: 'shiftCode' },
+    { label: 'Operator', key: 'employeeId', options: sortedEmployeeOptions(opts.employees) },
+  ])
+  // Parameter Analysis also names the part + parameter picked on the card.
+  const paramFilterText = [filterText, part && `Part: ${part}`, chartParameter && `Parameter: ${chartParameter}`].filter(Boolean).join(' · ')
   const gaugeInfo = gaugeSummary(readings, inspectionById, partForPrd, part, chartParameter) // 048
   const yDomain = useMemo(() => {
     const vals = paramSeries.flatMap((p) => [p.observed, p.min, p.max]).filter((v) => v != null)
@@ -235,7 +248,22 @@ export default function QualityStatusScreen() {
         </KpiCardRow>
 
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
-          <ChartCard title="Inspection Result Trend" icon={TrendingUp} loading={loading} empty={counts.total === 0} height={270}>
+          <ChartCard
+            title="Inspection Result Trend"
+            icon={TrendingUp}
+            loading={loading}
+            empty={counts.total === 0}
+            height={270}
+            screen={SCREEN}
+            exportKey="Inspection_Result_Trend"
+            filterText={filterText}
+            exportData={seriesExportData(trend, 'label', 'Period', [
+              { key: 'accepted', label: 'Accepted' },
+              { key: 'rejected', label: 'Rejected' },
+              { key: 'noReadings', label: 'No readings' },
+              { key: 'yield_pct', label: 'Yield %' },
+            ])}
+          >
             <ComposedChart data={trend} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
               <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
               <XAxis dataKey="label" tick={AXIS_TICK} minTickGap={12} />
@@ -250,7 +278,18 @@ export default function QualityStatusScreen() {
             </ComposedChart>
           </ChartCard>
 
-          <ChartCard title="Quality Status (Overall)" icon={PieIcon} loading={loading} empty={counts.total === 0} height={270} raw>
+          <ChartCard
+            title="Quality Status (Overall)"
+            icon={PieIcon}
+            loading={loading}
+            empty={counts.total === 0}
+            height={270}
+            raw
+            screen={SCREEN}
+            exportKey="Quality_Status_Overall"
+            filterText={filterText}
+            exportData={donutExportData(donut, { labelHeader: 'Result', valueHeader: 'Inspections' })}
+          >
             <DonutChart
               data={donut}
               centre={{ caption: 'Total', total: formatQty(counts.total), unit: 'Inspections' }}
@@ -266,6 +305,20 @@ export default function QualityStatusScreen() {
             empty={paramSeries.length === 0}
             emptyText={gaugeInfo ? `Gauge check: ${gaugeInfo.ok} OK / ${gaugeInfo.notOk} Not OK` : undefined}
             height={270}
+            screen={SCREEN}
+            exportKey="Parameter_Analysis"
+            filterText={paramFilterText}
+            exportData={{
+              columns: [
+                { key: 'date', label: 'Date' },
+                { key: 'observed', label: `${chartParameter} (observed)` },
+                { key: 'std', label: 'Standard' },
+                { key: 'min', label: 'Lower' },
+                { key: 'max', label: 'Upper' },
+                { key: 'result', label: 'Result' },
+              ],
+              rows: paramSeries.map((p) => ({ date: displayDate(p.date), observed: p.observed, std: p.std ?? '', min: p.min ?? '', max: p.max ?? '', result: p.result ?? '' })),
+            }}
             actions={
               <div className="flex gap-1.5">
                 <select aria-label="Chart part" className={SELECT} value={part} onChange={(e) => { setChartPart(e.target.value); setChartParam('') }}>

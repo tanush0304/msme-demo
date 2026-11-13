@@ -22,6 +22,9 @@ import { ORDER_TYPES } from '../../utils/orderType'
 import { useDeliveryAddresses } from '../../utils/useDeliveryAddresses'
 import { deliveryText, deliveryOptionLabel } from '../../utils/deliveryAddress'
 import Banner from '../../components/Banner'
+import { reportFilterText, donutExportData, seriesExportData } from '../../utils/chartExport'
+
+const SCREEN = 'Customer_Order_Status'
 
 const STATUS_TONES = { Closed: 'green', Open: 'red', Cancelled: 'slate' }
 
@@ -136,6 +139,13 @@ export default function CustomerOrderStatusScreen({ onOpenTraceability }) {
     { key: 'open', label: 'Open', value: po.openQty, color: CHART_COLORS.red },
   ]
 
+  // Chart export: the applied period + filters, as labels.
+  const filterText = reportFilterText(r.applied, [
+    { label: 'Customer', key: 'customerId', options: customers.map((c) => ({ value: c.customer_id, label: c.customer_name ?? c.customer_id })) },
+    { label: 'Order Type', key: 'orderType' },
+    { label: 'Deliver To', key: 'deliveryAddressId', options: delivery.addresses.map((a) => ({ value: String(a.id), label: `${customerName.get(a.customer_id) ?? a.customer_id} – ${deliveryOptionLabel(a)}` })) },
+  ])
+
   const columns = [
     { key: 'customer_name', label: 'Customer Name' },
     { key: 'po_number', label: 'PO Reference' },
@@ -223,7 +233,20 @@ export default function CustomerOrderStatusScreen({ onOpenTraceability }) {
 
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
           <div className="xl:col-span-2">
-            <ChartCard title="PO Order Vs Qty Despatch (Monthly)" icon={BarChart3} loading={loading} empty={lines.length === 0} height={270}>
+            <ChartCard
+              title="PO Order Vs Qty Despatch (Monthly)"
+              icon={BarChart3}
+              loading={loading}
+              empty={lines.length === 0}
+              height={270}
+              screen={SCREEN}
+              exportKey="PO_vs_Despatch_Monthly"
+              filterText={filterText}
+              exportData={seriesExportData(monthly, 'label', 'Month', [
+                { key: 'po', label: 'PO Quantity' },
+                { key: 'dispatched', label: 'Quantity Despatched' },
+              ])}
+            >
               <ComposedChart data={monthly} margin={{ top: 22, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
                 <XAxis dataKey="label" tick={AXIS_TICK} />
@@ -247,7 +270,18 @@ export default function CustomerOrderStatusScreen({ onOpenTraceability }) {
               </ComposedChart>
             </ChartCard>
           </div>
-          <ChartCard title="PO Status (By Quantity)" icon={PieIcon} loading={loading} empty={totalQty === 0} height={270} raw>
+          <ChartCard
+            title="PO Status (By Quantity)"
+            icon={PieIcon}
+            loading={loading}
+            empty={totalQty === 0}
+            height={270}
+            raw
+            screen={SCREEN}
+            exportKey="PO_Status_By_Quantity"
+            filterText={filterText}
+            exportData={donutExportData(donut, { labelHeader: 'Status', valueHeader: 'Quantity (Nos)' })}
+          >
             <DonutChart data={donut} centre={{ caption: 'Total', total: formatQty(totalQty), unit: 'Nos' }} legendValue={(d) => `${formatQty(d.value)} Nos`} tooltip={(d) => `${formatQty(d.value)} Nos`} />
           </ChartCard>
         </div>

@@ -16,6 +16,9 @@ import { monthLabel } from '../../utils/reportOrders'
 import useReportPeriod from '../../components/reports/useReportPeriod'
 import { machineRows, downtimeSummary, downtimeTrend, DOWNTIME_TYPES, round1, trendBuckets } from '../../utils/reportAggregates'
 import Banner from '../../components/Banner'
+import { reportFilterText, donutExportData, seriesExportData } from '../../utils/chartExport'
+
+const SCREEN = 'Downtime'
 
 const EMPTY_FILTERS = { machineId: '', shiftCode: '' }
 
@@ -74,6 +77,14 @@ export default function DowntimeScreen() {
     [hourRows, setupRows, applied.from, applied.to]
   )
   const typeData = summary.byType.map((t, i) => ({ ...t, hours: hrs(t.lostMin), color: TYPE_COLORS[i] }))
+  // Chart export: the applied period + filters, as labels.
+  const chartProps = {
+    screen: SCREEN,
+    filterText: reportFilterText(applied, [
+      { label: 'Machine', key: 'machineId', options: options.machines.map((m) => ({ value: m.machine_id, label: machineOptionLabel(m) })) },
+      { label: 'Shift', key: 'shiftCode' },
+    ]),
+  }
 
   const availableHrs = hrs(summary.availableMin)
   const tableRows = typeData.map((t) => ({ key: t.key, label: t.label, available: availableHrs, lost: t.hours, pct: t.pct, color: t.color }))
@@ -113,7 +124,16 @@ export default function DowntimeScreen() {
         </KpiCardRow>
 
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
-          <ChartCard title="Downtime Hours by Type" icon={BarChart3} loading={loading} empty={empty || summary.lostMin === 0} height={260}>
+          <ChartCard
+            title="Downtime Hours by Type"
+            icon={BarChart3}
+            loading={loading}
+            empty={empty || summary.lostMin === 0}
+            height={260}
+            {...chartProps}
+            exportKey="Hours_By_Type"
+            exportData={seriesExportData(typeData, 'label', 'Downtime Type', [{ key: 'hours', label: 'Hours Lost' }])}
+          >
             <ComposedChart data={typeData} margin={{ top: 18, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
               <XAxis dataKey="label" tick={{ ...AXIS_TICK, fontSize: 10 }} interval={0} angle={-25} textAnchor="end" height={50} />
@@ -131,7 +151,20 @@ export default function DowntimeScreen() {
             </ComposedChart>
           </ChartCard>
 
-          <ChartCard title="Downtime % by Type" icon={PieIcon} loading={loading} empty={empty || summary.lostMin === 0} height={260} raw>
+          <ChartCard
+            title="Downtime % by Type"
+            icon={PieIcon}
+            loading={loading}
+            empty={empty || summary.lostMin === 0}
+            height={260}
+            raw
+            {...chartProps}
+            exportKey="Percent_By_Type"
+            exportData={donutExportData(
+              typeData.map((t) => ({ key: t.key, label: t.label, value: t.lostMin, color: t.color })),
+              { labelHeader: 'Downtime Type', valueHeader: 'Minutes Lost' },
+            )}
+          >
             <DonutChart
               data={typeData.map((t) => ({ key: t.key, label: t.label, value: t.lostMin, color: t.color }))}
               centre={{ caption: 'Total', total: fmtHrs(hrs(summary.lostMin)), unit: 'Hrs Lost' }}
@@ -139,7 +172,21 @@ export default function DowntimeScreen() {
             />
           </ChartCard>
 
-          <ChartCard title="Trend of Downtime Hours" icon={TrendingUp} loading={loading} empty={empty} height={260}>
+          <ChartCard
+            title="Trend of Downtime Hours"
+            icon={TrendingUp}
+            loading={loading}
+            empty={empty}
+            height={260}
+            {...chartProps}
+            exportKey="Downtime_Trend"
+            exportData={seriesExportData(
+              trend,
+              'label',
+              trend.length && String(trend[0].date ?? '').length === 7 ? 'Month' : 'Date',
+              DOWNTIME_TYPES.map((t) => ({ key: t.key, label: t.label })),
+            )}
+          >
             <ComposedChart data={trend} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
               <XAxis dataKey="label" tick={AXIS_TICK} minTickGap={12} />

@@ -14,6 +14,9 @@ import { changePct, trendBuckets } from '../../utils/reportAggregates'
 import { monthLabel } from '../../utils/reportOrders'
 import { stockMovement, dailyMovement, topN, orderFulfilment } from '../../utils/reportStock'
 import Banner from '../../components/Banner'
+import { reportFilterText, donutExportData, seriesExportData } from '../../utils/chartExport'
+
+const SCREEN = 'FG_Inventory'
 import { listCustomerOrders } from '../../data/queries/customerOrders'
 import { useDeliveryAddresses } from '../../utils/useDeliveryAddresses'
 import { deliveryText } from '../../utils/deliveryAddress'
@@ -153,6 +156,14 @@ export default function FgInventoryScreen() {
     { key: 'pending', label: 'Yet to produce', value: fulfilment.yetToProduce, color: CHART_COLORS.orange },
   ]
 
+  // Chart export: the applied period + filters, as labels.
+  const chartProps = {
+    screen: SCREEN,
+    filterText: reportFilterText(r.applied, [
+      { label: 'Customer', key: 'customer' },
+      { label: 'PRD No', key: 'prdNo' },
+    ]),
+  }
   const customerOptions = useMemo(() => [...new Set(master.map((m) => m.customer_name).filter(Boolean))].sort(), [master])
   // PRD list narrows to the chosen Customer (not yet applied too).
   const prdOptions = useMemo(
@@ -207,7 +218,20 @@ export default function FgInventoryScreen() {
 
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
           <div>
-            <ChartCard title="FG Stock Movement Trend" icon={BarChart3} loading={loading} empty={rows.length === 0} height={260}>
+            <ChartCard
+              title="FG Stock Movement Trend"
+              icon={BarChart3}
+              loading={loading}
+              empty={rows.length === 0}
+              height={260}
+              {...chartProps}
+              exportKey="Stock_Movement_Trend"
+              exportData={seriesExportData(trend, 'label', 'Period', [
+                { key: 'receipts', label: 'Receipts' },
+                { key: 'issues', label: 'Despatched' },
+                { key: 'balance', label: 'Closing Stock' },
+              ])}
+            >
               <ComposedChart data={trend} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
                 <XAxis dataKey="label" tick={AXIS_TICK} minTickGap={12} />
@@ -221,7 +245,16 @@ export default function FgInventoryScreen() {
             </ChartCard>
           </div>
           <div>
-            <ChartCard title="FG Stock by Customer (Top 5)" icon={Users} loading={loading} empty={byCustomer.length === 0} height={260}>
+            <ChartCard
+              title="FG Stock by Customer (Top 5)"
+              icon={Users}
+              loading={loading}
+              empty={byCustomer.length === 0}
+              height={260}
+              {...chartProps}
+              exportKey="Stock_By_Customer_Top5"
+              exportData={seriesExportData(byCustomer, 'label', 'Customer', [{ key: 'value', label: 'FG Stock (Nos)' }])}
+            >
               <ComposedChart data={byCustomer} layout="vertical" margin={{ top: 4, right: 40, left: 8, bottom: 0 }}>
                 <CartesianGrid stroke={CHART_COLORS.grid} horizontal={false} />
                 <XAxis type="number" tick={AXIS_TICK} allowDecimals={false} />
@@ -240,7 +273,17 @@ export default function FgInventoryScreen() {
             </ChartCard>
           </div>
           <div>
-            <ChartCard title="Order Fulfilment (by qty)" icon={PieIcon} loading={loading} empty={fulfilment.total === 0} height={260} raw>
+            <ChartCard
+              title="Order Fulfilment (by qty)"
+              icon={PieIcon}
+              loading={loading}
+              empty={fulfilment.total === 0}
+              height={260}
+              raw
+              {...chartProps}
+              exportKey="Order_Fulfilment"
+              exportData={donutExportData(fulfilmentDonut, { labelHeader: 'Status', valueHeader: 'Quantity (Nos)' })}
+            >
               <DonutChart
                 data={fulfilmentDonut}
                 centre={{ caption: 'Total', total: formatQty(fulfilment.total), unit: 'Nos' }}

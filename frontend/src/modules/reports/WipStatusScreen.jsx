@@ -17,6 +17,9 @@ import { trendBuckets } from '../../utils/reportAggregates'
 import { monthLabel } from '../../utils/reportOrders'
 import { stockMovement, wipChartState, topN } from '../../utils/reportStock'
 import Banner from '../../components/Banner'
+import { reportFilterText, donutExportData, seriesExportData } from '../../utils/chartExport'
+
+const SCREEN = 'WIP_Status'
 
 const SERIES = [CHART_COLORS.blue, CHART_COLORS.green, CHART_COLORS.orange, CHART_COLORS.purple, CHART_COLORS.red, '#0F9F8F', CHART_COLORS.amber]
 const balanceClass = (v) => (v > 0 ? 'bg-amber-100' : 'bg-green-100')
@@ -103,6 +106,14 @@ export default function WipStatusScreen() {
     return [...m].map(([label, value]) => ({ label, value })).filter((x) => x.value > 0).sort((a, b) => b.value - a.value)
   }, [rows])
   const donut = topN(byOperation, 4).map((x, i) => ({ key: x.label, label: x.label, value: x.value, color: SERIES[i % SERIES.length] }))
+  // Chart export: the applied period + filters, as labels.
+  const chartProps = {
+    screen: SCREEN,
+    filterText: reportFilterText(r.applied, [
+      { label: 'PRD No', key: 'prdNo' },
+      { label: 'Type of Operation', key: 'operation' },
+    ]),
+  }
 
   // Whole period (monthly above 62 days): Received / Issued bars + Closing WIP line.
   const chart = useMemo(
@@ -157,7 +168,16 @@ export default function WipStatusScreen() {
         </KpiCardRow>
 
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
-          <ChartCard title="WIP Quantity by Operation" icon={BarChart3} loading={loading} empty={byOperation.length === 0} emptyText={balanceEmptyText}>
+          <ChartCard
+            title="WIP Quantity by Operation"
+            icon={BarChart3}
+            loading={loading}
+            empty={byOperation.length === 0}
+            emptyText={balanceEmptyText}
+            {...chartProps}
+            exportKey="Quantity_By_Operation"
+            exportData={seriesExportData(byOperation, 'label', 'Operation', [{ key: 'value', label: 'Balance WIP (Nos)' }])}
+          >
             <ComposedChart data={byOperation} margin={{ top: 20, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
               <XAxis dataKey="label" tick={AXIS_TICK} interval={0} />
@@ -175,7 +195,17 @@ export default function WipStatusScreen() {
             </ComposedChart>
           </ChartCard>
 
-          <ChartCard title="WIP Status" icon={PieIcon} loading={loading} empty={donut.length === 0} emptyText={balanceEmptyText} raw>
+          <ChartCard
+            title="WIP Status"
+            icon={PieIcon}
+            loading={loading}
+            empty={donut.length === 0}
+            emptyText={balanceEmptyText}
+            raw
+            {...chartProps}
+            exportKey="WIP_Status_Share"
+            exportData={donutExportData(donut, { labelHeader: 'Operation', valueHeader: 'Balance WIP (Nos)' })}
+          >
             <DonutChart data={donut} centre={{ caption: 'Total WIP', total: formatQty(kpi.balance), unit: 'Nos' }} tooltip={(d) => `${formatQty(d.value)} Nos`} />
           </ChartCard>
 
@@ -185,6 +215,13 @@ export default function WipStatusScreen() {
             loading={loading}
             empty={chart.trendEmpty}
             emptyText="No WIP movement in this period"
+            {...chartProps}
+            exportKey="WIP_Trend"
+            exportData={seriesExportData(chart.trend, 'label', 'Period', [
+              { key: 'receipts', label: 'Received' },
+              { key: 'issues', label: 'Issued' },
+              { key: 'balance', label: 'Closing WIP' },
+            ])}
           >
             <ComposedChart data={chart.trend} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
