@@ -49,6 +49,9 @@ import StageStartGuard from '../../components/StageStartGuard'
 import { earlierIncompleteStage, canStartStage, runningBanner } from '../../utils/stageStartGuard'
 import Banner from '../../components/Banner'
 import StageCompleteControl from '../../components/StageCompleteControl'
+import { hourQtyCapProblems } from '../../utils/hourQtyCap'
+import { useQtyCapDialog, passQtyCap } from '../../components/QtyCapDialog'
+import { getHourCapSettings } from '../../data/queries/appSettings'
 import { materialAvailableText } from '../../utils/stageReopen'
 import OrderLineFields from '../../components/OrderLineFields'
 import { orderLineSuffix } from '../../utils/deliveryAddress'
@@ -299,6 +302,32 @@ export default function ManualOperationsScreen({ role }) {
   // since they're what makes multi-shift/multi-day logging on one log
   // attributable per hour instead of all defaulting to the log header's
   // original creation-time values.
+  // Per-hour standard cap + planned-qty cap (same rules as 051).
+  // 051 "app settings": hourly cap mode + tolerance (strict, 0 % until read / before 051).
+  const [capSettings, setCapSettings] = useState({})
+  useEffect(() => {
+    let live = true
+    getHourCapSettings().then((s) => live && setCapSettings(s))
+    return () => {
+      live = false
+    }
+  }, [])
+  const capDialog = useQtyCapDialog()
+  function capProblems(newRows, changes = []) {
+    return hourQtyCapProblems({
+      newRows,
+      changes,
+      logHours,
+      shiftFor: (code) => shifts.find((s) => s.shift_code === code),
+      draftShiftCode: shiftCode,
+      cycleTimeMin: activeLog.cycle_time_min,
+      standardQtyPerHour: activeLog.standard_qty_per_hour,
+      plannedQty: activeLog.planned_qty,
+      settings: capSettings,
+      role,
+    })
+  }
+
   // `changes`: edits to already-saved rows of the grid's shift (only the
   // changed ones) -- updated in place, keeping their original employee.
   async function handleSaveHours(rows, changes = []) {
@@ -310,6 +339,8 @@ export default function ManualOperationsScreen({ role }) {
     setSavingHour(true)
     setError(null)
     try {
+      // false keeps the typed rows in the grid (qty cap popup)
+      if (!(await passQtyCap(capProblems(rows, changes), capDialog))) return false
       const stamped = rows.map((r) => ({
         ...r,
         log_id: activeLog.id,
@@ -323,6 +354,7 @@ export default function ManualOperationsScreen({ role }) {
       await Promise.all([refreshAfterHourSave(), shiftCheck.resubmitted(entryDate, shiftCode)])
     } catch (e) {
       setError(e.message)
+      return false
     } finally {
       setSavingHour(false)
     }
@@ -337,6 +369,7 @@ export default function ManualOperationsScreen({ role }) {
     setSavingHour(true)
     setError(null)
     try {
+      if (!(await passQtyCap(capProblems([row]), capDialog))) return false
       const saved = await addProductionLogHour({
         ...row,
         log_id: activeLog.id,
@@ -348,6 +381,7 @@ export default function ManualOperationsScreen({ role }) {
       await Promise.all([refreshAfterHourSave(), shiftCheck.resubmitted(entryDate, shiftCode)])
     } catch (e) {
       setError(e.message)
+      return false
     } finally {
       setSavingHour(false)
     }
@@ -634,6 +668,7 @@ export default function ManualOperationsScreen({ role }) {
           </div>
         )}
       </div>
+      {capDialog.dialog}
     </div>
   )
 }

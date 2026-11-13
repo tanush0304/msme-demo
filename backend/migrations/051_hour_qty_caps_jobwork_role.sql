@@ -5,8 +5,9 @@
 -- that skip the screens):
 --
 --   S. "app settings" (key text pk, value text, updated_by, updated_at):
---        authenticated read, admin-only insert / update (is_app_admin()),
---        no delete, no anon. Seeded hour_qty_cap_mode = 'strict',
+--        demo: authenticated SELECT only (no app writes -- no insert /
+--        update grant, no write policies), RLS on, nothing for anon.
+--        Seeded hour_qty_cap_mode = 'strict',
 --        hour_qty_cap_tolerance_pct = '0' (existing values are kept on a
 --        re-run). Values are checked on save: mode in strict /
 --        supervisor_override / off; tolerance a number 0-100.
@@ -108,7 +109,8 @@ create table if not exists public."app settings" (
 
 revoke all on table public."app settings" from public, anon, authenticated;
 
-grant select, insert, update on table public."app settings" to authenticated;
+-- demo: SELECT only -- no app screen writes the settings (SQL editor only).
+grant select on table public."app settings" to authenticated;
 
 grant all on table public."app settings" to service_role;
 
@@ -119,15 +121,10 @@ drop policy if exists "app settings read" on public."app settings";
 create policy "app settings read" on public."app settings"
   for select to authenticated using (true);
 
+-- demo: no write policies (a re-run over the client version removes them).
 drop policy if exists "app settings admin insert" on public."app settings";
 
-create policy "app settings admin insert" on public."app settings"
-  for insert to authenticated with check (is_app_admin());
-
 drop policy if exists "app settings admin update" on public."app settings";
-
-create policy "app settings admin update" on public."app settings"
-  for update to authenticated using (is_app_admin()) with check (is_app_admin());
 
 -- Stamps + value checks (app callers; the SQL editor can set anything).
 create or replace function public.guard_app_settings() returns trigger
@@ -309,7 +306,7 @@ order by 1;
 
 -- V4b. Settings seeded (expect hour_qty_cap_mode = strict,
 --      hour_qty_cap_tolerance_pct = 0 on a first run) + grants: authenticated
---      INSERT, SELECT, UPDATE (no DELETE); anon nothing; RLS on; 3 policies.
+--      SELECT only; anon nothing; RLS on; 1 policy ("app settings read").
 select key, value, updated_by, updated_at from public."app settings" order by key;
 select grantee, string_agg(privilege_type, ', ' order by privilege_type) as privileges
 from information_schema.role_table_grants
@@ -326,8 +323,8 @@ select policyname, cmd from pg_policies where schemaname = 'public' and tablenam
 --     "job order dispatch" -> 42501; supervisor DC + receipt -> saved.
 --     Settings: supervisor_override -> supervisor's 61 saved, operator's 61
 --     refused; tolerance 10 -> standard 66; off -> no hourly cap (planned cap
---     still applies); operator / supervisor update of "app settings" -> refused
---     by RLS; admin mode 'xyz' -> 23514.
+--     still applies); any app user's insert / update of "app settings" ->
+--     refused (demo: SELECT grant only). Settings change in the SQL editor only.
 
 
 -- ------------------------------------------------------------ ROLLBACK

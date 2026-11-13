@@ -57,6 +57,11 @@ import StageStartGuard from '../../components/StageStartGuard'
 import { pickDefaultStage, defaultMachineForStage, earlierIncompleteStage, canStartStage, runningBanner, plannedMachineHint, plannedFirst } from '../../utils/stageStartGuard'
 import Banner from '../../components/Banner'
 import StageCompleteControl from '../../components/StageCompleteControl'
+import { hourQtyCapProblems } from '../../utils/hourQtyCap'
+import { useQtyCapDialog, passQtyCap } from '../../components/QtyCapDialog'
+import { getHourCapSettings } from '../../data/queries/appSettings'
+import ConfirmDialog from '../../components/ConfirmDialog'
+import { machineShiftClash, clashAllowsStart } from '../../utils/machineShiftClash'
 import { materialAvailableText } from '../../utils/stageReopen'
 import OrderLineFields from '../../components/OrderLineFields'
 import { orderLineSuffix } from '../../utils/deliveryAddress'
@@ -131,6 +136,13 @@ export default function ProductionDataEntryScreen({ role }) {
       active = false
     }
   }, [])
+  // Machine / shift clash before Start (utils/machineShiftClash): result for
+  // the chosen machine + date + shift, its popup (once per selection) and the
+  // supervisor's "Start as overtime" -- all keyed by that selection.
+  const [clash, setClash] = useState(null)
+  const [clashChecking, setClashChecking] = useState(false)
+  const [clashDismissedKey, setClashDismissedKey] = useState('')
+  const [overtimeKey, setOvertimeKey] = useState('')
   const [totals, setTotals] = useState(null)
   const [draftHourRows, setDraftHourRows] = useState([])
   const [savingHour, setSavingHour] = useState(false)
@@ -423,9 +435,17 @@ export default function ProductionDataEntryScreen({ role }) {
     }
   }
 
-  async function handleStart() {
+  // opts.overtime: "Start as overtime" from the fully-used popup / note.
+  async function handleStart(opts = {}) {
     if (!canStartStage({ available: plannedQty, earlierIncomplete, confirmed: confirmEarlier })) return
     if (checklistBlocksStart) return
+    if (clashChecking) return
+    const overtimeOk = opts?.overtime === true || (!!clashKey && overtimeKey === clashKey)
+    if (!clashAllowsStart(clash, { overtimeConfirmed: overtimeOk })) {
+      setError(clash.message)
+      return
+    }
+    if (opts?.overtime === true) setOvertimeKey(clashKey)
     if (substituteError) {
       fieldError.fail(substituteReason === 'Other' ? 'substitute_note' : 'substitute_reason', substituteError)
       return
@@ -491,6 +511,32 @@ export default function ProductionDataEntryScreen({ role }) {
   // since they're what makes multi-shift/multi-day logging on one log
   // attributable per hour instead of all defaulting to the log header's
   // original creation-time values.
+  // Per-hour standard cap + planned-qty cap (same rules as 051).
+  // 051 "app settings": hourly cap mode + tolerance (strict, 0 % until read / before 051).
+  const [capSettings, setCapSettings] = useState({})
+  useEffect(() => {
+    let live = true
+    getHourCapSettings().then((s) => live && setCapSettings(s))
+    return () => {
+      live = false
+    }
+  }, [])
+  const capDialog = useQtyCapDialog()
+  function capProblems(newRows, changes = []) {
+    return hourQtyCapProblems({
+      newRows,
+      changes,
+      logHours,
+      shiftFor: (code) => shifts.find((s) => s.shift_code === code),
+      draftShiftCode: shiftCode,
+      cycleTimeMin: activeLog.cycle_time_min,
+      standardQtyPerHour: activeLog.standard_qty_per_hour,
+      plannedQty: activeLog.planned_qty,
+      settings: capSettings,
+      role,
+    })
+  }
+
   // `changes`: edits to already-saved rows of the grid's shift (only the
   // changed ones) -- updated in place, keeping their original employee.
   async function handleSaveHours(rows, changes = []) {
@@ -512,6 +558,8 @@ export default function ProductionDataEntryScreen({ role }) {
             otherIdle: (r) => totalIdle({ ...r, setup_min: null }) || 0,
           })
         : rows
+      // false keeps the typed rows in the grid (qty cap popup)
+      if (!(await passQtyCap(capProblems(withSetup, changes), capDialog))) return false
       const stamped = withSetup.map((r) => ({
         ...r,
         log_id: activeLog.id,
@@ -525,6 +573,7 @@ export default function ProductionDataEntryScreen({ role }) {
       await Promise.all([refreshAfterHourSave(), shiftCheck.resubmitted(entryDate, shiftCode)])
     } catch (e) {
       setError(e.message)
+      return false
     } finally {
       setSavingHour(false)
     }
@@ -539,6 +588,7 @@ export default function ProductionDataEntryScreen({ role }) {
     setSavingHour(true)
     setError(null)
     try {
+      if (!(await passQtyCap(capProblems([row]), capDialog))) return false
       const saved = await addProductionLogHour({
         ...row,
         log_id: activeLog.id,
@@ -550,6 +600,7 @@ export default function ProductionDataEntryScreen({ role }) {
       await Promise.all([refreshAfterHourSave(), shiftCheck.resubmitted(entryDate, shiftCode)])
     } catch (e) {
       setError(e.message)
+      return false
     } finally {
       setSavingHour(false)
     }
@@ -665,6 +716,68 @@ export default function ProductionDataEntryScreen({ role }) {
   // Display only: the same availability Start uses; with an open log, its own reservation.
   const materialText = materialAvailableText({ target: stageTarget, available: plannedQty, reserved: activeLog?.planned_qty, logOpen: !!activeLog })
 
+  // Before Start: is the chosen machine running another log, or is its date +
+  // shift already (partly) used by other logs? Re-checked when machine, date,
+  // shift or stage change; a newer check drops an older one's result. A failed
+  // lookup shows a toast and does not block Start (like the checklist gate).
+  const clashKey = !activeLog && !restoring && machineId && shiftCode && resolvedStage
+    ? `${machineId}|${entryDate}|${shiftCode}|${resolvedStage.id}`
+    : ''
+  useEffect(() => {
+    if (!clashKey) {
+      setClash(null)
+      setClashChecking(false)
+      return undefined
+    }
+    let active = true
+    setClash(null)
+    setClashChecking(true)
+    Promise.resolve()
+      .then(() => Promise.all([
+        listAllOpenLogs(),
+        listOtherMachineShiftHours({ machineId, logDate: entryDate, shiftCode }),
+      ]))
+      .then(async ([openLogs, rows]) => {
+        const stages = await stagesForOpenLogs(openLogs ?? [], allStagesRef.current)
+        if (!active) return
+        setClash(machineShiftClash({
+          machineId,
+          machineLabel: machineLabels[machineId] ?? machineId,
+          logDate: entryDate,
+          shift: entryShiftRow,
+          openLogs: openLogsWithSeq(openLogs ?? [], stages),
+          otherRows: rows ?? [],
+          prdNo,
+          resumableStageIds: prdStages.map((s) => s.id),
+          canOvertime,
+        }))
+      })
+      .catch((e) => {
+        if (!active) return
+        setClash(null)
+        setError(`Could not check the machine's hours for this shift: ${dbErrorMessage(e)}`)
+      })
+      .finally(() => {
+        if (active) setClashChecking(false)
+      })
+    return () => {
+      active = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clashKey])
+  const overtimeConfirmed = !!clashKey && overtimeKey === clashKey
+  const clashBlocksStart = !!clashKey && (clashChecking || !clashAllowsStart(clash, { overtimeConfirmed }))
+  const clashPopupOpen = !!clashKey && !!clash && (clash.kind === 'running' || clash.kind === 'full') && clashDismissedKey !== clashKey && !overtimeConfirmed
+
+  // Busy machines (an open log) stay listed with "— busy: PRD-x Stage n" but
+  // can't be picked -- except a log of THIS PRD on a stage the screen offers:
+  // picking it resumes that log (shift handover).
+  function busyBlocks(id) {
+    const busy = Object.values(optionsBySeq).flat().find((o) => o.machine_id === id && o.busy)?.busy
+    if (!busy) return false
+    return !(busy.prd_no === prdNo && prdStages.some((s) => String(s.id) === String(busy.stage_id)))
+  }
+
   // Footer totals update live while hour rows are typed: every saved hour of
   // the log + unsaved rows (same rule as the "production log totals" view).
   const liveTotals = activeLog
@@ -726,6 +839,7 @@ export default function ProductionDataEntryScreen({ role }) {
               options={plannedFirst(eligibleMachineIds, nextStageMachineId).map((id) => ({
                 value: id,
                 label: `${optionLabel(id)}${id === nextStageMachineId ? ' (planned · next stage)' : ''}`,
+                ...(!activeLog && busyBlocks(id) ? { disabled: true } : {}),
               }))}
             />
             {!activeLog && nextStage && (
@@ -862,10 +976,34 @@ export default function ProductionDataEntryScreen({ role }) {
                 onConfirmChange={setConfirmEarlier}
               />
             )}
+            {!activeLog && clashKey && (clashChecking || (clash && clash.kind !== 'free')) && (
+              <div
+                data-testid="machine-shift-clash"
+                className={`sm:col-span-3 rounded border px-3 py-2 text-xs ${
+                  clashChecking
+                    ? 'border-gray-200 bg-gray-50 text-gray-500'
+                    : clash.kind === 'partial' || overtimeConfirmed
+                      ? 'border-amber-300 bg-amber-50 text-amber-800'
+                      : 'border-red-200 bg-red-50 text-red-700'
+                }`}
+              >
+                {clashChecking ? 'Checking the machine\'s hours for this shift...' : clash.message}
+                {!clashChecking && clash.kind === 'full' && clash.overtimeAllowed && !overtimeConfirmed && (
+                  <button
+                    type="button"
+                    onClick={() => handleStart({ overtime: true })}
+                    disabled={starting || !!substituteError || checklistBlocksStart || !canStartStage({ available: plannedQty, earlierIncomplete, confirmed: confirmEarlier })}
+                    className="ml-2 rounded bg-brandblue px-2 py-0.5 text-[11px] font-medium text-white disabled:opacity-40"
+                  >
+                    Start as overtime
+                  </button>
+                )}
+              </div>
+            )}
             <div className="flex items-end">
               <button
-                onClick={handleStart}
-                disabled={starting || !!activeLog || !!substituteError || checklistBlocksStart || !canStartStage({ available: plannedQty, earlierIncomplete, confirmed: confirmEarlier })}
+                onClick={() => handleStart()}
+                disabled={starting || !!activeLog || !!substituteError || checklistBlocksStart || clashBlocksStart || !canStartStage({ available: plannedQty, earlierIncomplete, confirmed: confirmEarlier })}
                 className="bg-brandblue text-white rounded px-3 py-1.5 text-xs font-medium disabled:opacity-40 hover:bg-brandnavy"
               >
                 {activeLog ? 'Started' : starting ? 'Starting...' : 'Start Production'}
@@ -963,6 +1101,18 @@ export default function ProductionDataEntryScreen({ role }) {
           </div>
         )}
       </div>
+      {capDialog.dialog}
+      <ConfirmDialog
+        open={clashPopupOpen}
+        tone="notice"
+        title={clash?.kind === 'running' ? 'Machine is busy' : 'Shift fully used'}
+        body={clash?.message}
+        hideCancel={!(clash?.kind === 'full' && clash?.overtimeAllowed)}
+        confirmLabel={clash?.kind === 'full' && clash?.overtimeAllowed ? 'Start as overtime' : 'OK'}
+        cancelLabel="OK"
+        onConfirm={() => (clash?.kind === 'full' && clash?.overtimeAllowed ? handleStart({ overtime: true }) : undefined)}
+        onClose={() => setClashDismissedKey(clashKey)}
+      />
     </div>
     </FieldErrorProvider>
   )

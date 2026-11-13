@@ -9,6 +9,9 @@ import SearchableSelect from '../../components/SearchableSelect'
 import EmployeeSelect from '../../components/EmployeeSelect'
 import { listEmployees } from '../../data/queries/employees'
 import { listShifts } from '../../data/queries/shifts'
+import { hourQtyCapProblems } from '../../utils/hourQtyCap'
+import { useQtyCapDialog, passQtyCap } from '../../components/QtyCapDialog'
+import { getHourCapSettings } from '../../data/queries/appSettings'
 import { listMachines } from '../../data/queries/machines'
 import { listAllStages } from '../../data/queries/routeCards'
 import { listOrdersByPrd } from '../../data/queries/customerOrders'
@@ -107,6 +110,16 @@ export default function ShiftVerificationScreen({ role }) {
   // 035: correcting a Rejected shift of a closed log (hour id -> draft).
   const [drafts, setDrafts] = useState(null)
   const [correctSaving, setCorrectSaving] = useState(false)
+  // 051 "app settings": hourly cap mode + tolerance (strict, 0 % until read / before 051).
+  const [capSettings, setCapSettings] = useState({})
+  useEffect(() => {
+    let live = true
+    getHourCapSettings().then((s) => live && setCapSettings(s))
+    return () => {
+      live = false
+    }
+  }, [])
+  const capDialog = useQtyCapDialog()
 
   useEffect(() => {
     Promise.all([listShifts(), listMachines(), listEmployees(), listAllStages(), listOrdersByPrd(), listProducts(), getCurrentUserId()])
@@ -214,6 +227,17 @@ export default function ShiftVerificationScreen({ role }) {
       setError('Nothing changed.')
       return
     }
+    const capped = hourQtyCapProblems({
+      changes: changes.map((c) => ({ id: c.id, ...c.patch })),
+      logHours: selected.hourRows,
+      shiftFor: (code) => shifts.find((x) => x.shift_code === code),
+      draftShiftCode: shiftCode,
+      cycleTimeMin: selected.cycle_time_min,
+      standardQtyPerHour: selected.standard_qty_per_hour,
+      settings: capSettings,
+      role,
+    })
+    if (!(await passQtyCap(capped, capDialog))) return
     setCorrectSaving(true)
     setError(null)
     const { saved, failed } = await saveCorrection(changes, updateHourCorrection)
@@ -535,6 +559,7 @@ export default function ShiftVerificationScreen({ role }) {
           </FormSection>
         )}
       </div>
+      {capDialog.dialog}
     </div>
   )
 }

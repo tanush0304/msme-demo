@@ -129,7 +129,7 @@ export function buildShiftRows({
       rejected: sumBy(logHours, (h) => Number(h.qty_rejected ?? 0)),
       rework: sumBy(logHours, (h) => Number(h.qty_rework ?? 0)),
       idle_min: sumBy(logHours, (h) => totalIdle(h) || 0),
-      // PRD-009: setting shown apart from idle (046 rows' setup, else the log's
+      // setting shown apart from idle (046 rows' setup, else the log's
       // Start setting time); cap inputs for corrections.
       setup_min: sumBy(logHours, (h) => Number(h.setup_min ?? 0) || 0),
       setting_time_min: log.setting_time_min ?? null,
