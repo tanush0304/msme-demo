@@ -20,6 +20,11 @@ vi.mock('../../data/queries/qualityParameters', () => ({
   qualityGaugeStandardSupported: async () => m.gaugeStandard ?? false,
   parameterHasReadings: async (id) => (m.withReadings ?? []).includes(id),
 }))
+// 054: Applies To "Job Work" (part + job_work_code)
+vi.mock('../../data/queries/jobworkQc', () => ({ qualityReceiptSupported: async () => m.jobWork ?? false }))
+vi.mock('../../data/queries/jobWorkTypes', () => ({
+  listJobWorkTypes: async () => [{ job_work_code: 'HT', type_of_job_work: 'Heat Treatment' }, { job_work_code: 'BR', type_of_job_work: 'Broaching' }],
+}))
 vi.mock('../../data/queries/products', () => ({ listProducts: async () => [{ part_serial_number: 'P1', part_name: 'Shaft' }] }))
 vi.mock('../../data/queries/machines', () => ({
   listMachines: async () => [
@@ -33,6 +38,7 @@ vi.mock('../../data/queries/cycleTimes', () => ({
     { part_serial_number: 'P1', machine_id: 'MC-004', operation: 'Rough Turning' },
     { part_serial_number: 'P1', machine_id: 'MC-005', operation: 'Finish Turning' },
     { part_serial_number: 'P1', machine_id: 'MC-007', operation: 'Drilling' },
+    { part_serial_number: 'P1', machine_id: null, operation: 'Toughening', type: 'Outsourced', job_work_code: 'HT' },
   ],
 }))
 vi.mock('../../components/SearchableSelect', () => ({
@@ -61,13 +67,14 @@ async function ready() {
 
 function fillNumbers() {
   const inputs = document.querySelectorAll('input[type="number"]')
-  fireEvent.change(inputs[0], { target: { value: '50' } })
+  if (inputs[0]) fireEvent.change(inputs[0], { target: { value: '50' } }) // Job Work (056): no numeric Standard
 }
 
 beforeEach(() => {
   m.supported = true
   m.records = []
   m.create.mockClear()
+  m.jobWork = false
 })
 afterEach(() => cleanup())
 
@@ -361,5 +368,135 @@ describe('Quality Master -- Instrument (gauge_ref, both check types)', () => {
     await ready()
     await waitFor(() => expect(screen.getAllByRole('columnheader').length).toBeGreaterThan(0))
     expect(screen.getAllByRole('columnheader').map((h) => h.textContent)).not.toContain('Instrument')
+  })
+})
+
+describe('Quality Master -- Job Work (054)', () => {
+  async function fillJobWorkRow(param = 'Hardness') {
+    await ready()
+    await waitFor(() => screen.getByRole('radio', { name: 'Job Work' }))
+    fireEvent.click(screen.getByRole('radio', { name: 'Job Work' }))
+    pick(selectWith('P1'), 'P1')
+    pick(selectWith('HT'), 'HT')
+    pick(selectWith('Toughening'), 'Toughening')
+    fireEvent.change(document.querySelector('input[list="quality-parameter-suggestions"]'), { target: { value: param } })
+    fillNumbers()
+  }
+
+  it('before 054: no Job Work option and job_work_code never sent', async () => {
+    await ready()
+    await waitFor(() => screen.getByLabelText('Machine Category'))
+    expect(screen.queryByRole('radio', { name: 'Job Work' })).toBeNull()
+    pick(selectWith('P1'), 'P1')
+    pick(selectWith('CNC'), 'CNC')
+    pick(selectWith('Rough Turning'), 'Rough Turning')
+    fireEvent.change(document.querySelector('input[list="quality-parameter-suggestions"]'), { target: { value: 'OD' } })
+    fillNumbers()
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+    await waitFor(() => expect(m.create).toHaveBeenCalled())
+    expect('job_work_code' in m.create.mock.calls[0][0]).toBe(false)
+  })
+
+  it('after 054: Job Work row = part + job_work_code; operations from that job work; no machine / category', async () => {
+    m.jobWork = true
+    await fillJobWorkRow()
+    expect(optionTexts(selectWith('HT'))).toEqual(['Heat Treatment (HT)', 'Broaching (BR)'])
+    expect(optionTexts(selectWith('Toughening'))).toEqual(['Toughening'])
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+    await waitFor(() => expect(m.create).toHaveBeenCalled())
+    expect(m.create.mock.calls[0][0]).toMatchObject({
+      part_serial_number: 'P1', job_work_code: 'HT', machine_id: null, machine_category: null, type_of_operation: 'Toughening', quality_parameter: 'Hardness',
+    })
+  })
+
+  it('after 054: a machine row sends job_work_code null', async () => {
+    m.jobWork = true
+    await ready()
+    await waitFor(() => screen.getByLabelText('Specific Machine'))
+    fireEvent.click(screen.getByLabelText('Specific Machine'))
+    pick(selectWith('P1'), 'P1')
+    pick(selectWith('MC-004'), 'MC-004')
+    pick(selectWith('Rough Turning'), 'Rough Turning')
+    fireEvent.change(document.querySelector('input[list="quality-parameter-suggestions"]'), { target: { value: 'OD' } })
+    fillNumbers()
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+    await waitFor(() => expect(m.create).toHaveBeenCalled())
+    expect(m.create.mock.calls[0][0]).toMatchObject({ machine_id: 'MC-004', job_work_code: null })
+  })
+
+  it('refuses a duplicate Job Work parameter; list shows "Job Work: Heat Treatment"', async () => {
+    m.jobWork = true
+    m.records = [{ id: 1, part_serial_number: 'P1', machine_id: null, machine_category: null, job_work_code: 'HT', type_of_operation: 'Toughening', quality_parameter: 'Hardness', standard: 50 }]
+    await fillJobWorkRow(' hardness ')
+    expect(screen.getAllByText('Job Work: Heat Treatment').length).toBeGreaterThan(0)
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+    expect(await screen.findByText(/Hardness is already defined for P1 – Toughening on Job Work HT/)).toBeTruthy()
+    expect(m.create).not.toHaveBeenCalled()
+  })
+
+  it('a saved Job Work row opens with Applies To = Job Work', async () => {
+    m.jobWork = true
+    m.records = [{ id: 1, part_serial_number: 'P1', machine_id: null, machine_category: null, job_work_code: 'HT', type_of_operation: 'Toughening', quality_parameter: 'Hardness', standard: 50 }]
+    await ready()
+    fireEvent.click(await screen.findByText('Hardness'))
+    await waitFor(() => expect(screen.getByRole('radio', { name: 'Job Work' }).checked).toBe(true))
+  })
+})
+
+describe('Quality Master -- Job Work is always OK / Not OK (056)', () => {
+  const label = (text) => screen.queryByText(text, { selector: 'span' })
+  async function startJobWork() {
+    await ready()
+    await waitFor(() => screen.getByRole('radio', { name: 'Job Work' }))
+    fireEvent.click(screen.getByRole('radio', { name: 'Job Work' }))
+    pick(selectWith('P1'), 'P1')
+    pick(selectWith('HT'), 'HT')
+    pick(selectWith('Toughening'), 'Toughening')
+    fireEvent.change(document.querySelector('input[list="quality-parameter-suggestions"]'), { target: { value: 'Hardness' } })
+  }
+  function on() { m.jobWork = true; m.checkType = true; m.gaugeStandard = true }
+  function off() { m.checkType = false; m.gaugeStandard = false }
+
+  it('hides Check Type; shows only text Standard + Instrument; no tolerances / numeric Standard', async () => {
+    on()
+    try {
+      await startJobWork()
+      await waitFor(() => expect(label('Instrument')).toBeTruthy())
+      expect(label('Check Type')).toBeNull()
+      expect(label('Upper Tolerance')).toBeNull()
+      expect(label('Lower Tolerance')).toBeNull()
+      expect(document.querySelectorAll('input[type="number"]').length).toBe(0)
+      expect(label('Standard').closest('label').querySelector('input').type).not.toBe('number')
+    } finally { off() }
+  })
+
+  it('saves check_type Gauge automatically, numerics null, gauge_standard + gauge_ref trimmed', async () => {
+    on()
+    try {
+      await startJobWork()
+      await waitFor(() => expect(label('Instrument')).toBeTruthy())
+      fireEvent.change(label('Standard').closest('label').querySelector('input'), { target: { value: ' 58-62 HRC ' } })
+      fireEvent.change(label('Instrument').closest('label').querySelector('input'), { target: { value: ' HT-01 ' } })
+      fireEvent.click(screen.getByRole('button', { name: /save/i }))
+      await waitFor(() => expect(m.create).toHaveBeenCalled())
+      expect(m.create.mock.calls[0][0]).toMatchObject({
+        job_work_code: 'HT', check_type: 'Gauge', gauge_standard: '58-62 HRC', gauge_ref: 'HT-01',
+        standard: null, upper_tolerance: null, lower_tolerance: null,
+      })
+    } finally { off() }
+  })
+
+  it('switching away from Job Work brings back Check Type (Measured) + numeric Standard + tolerances', async () => {
+    on()
+    try {
+      await startJobWork()
+      await waitFor(() => expect(label('Instrument')).toBeTruthy())
+      fireEvent.click(screen.getByLabelText('Machine Category'))
+      await waitFor(() => expect(label('Check Type')).toBeTruthy())
+      expect(label('Check Type').closest('label').querySelector('select').value).toBe('Measured')
+      expect(label('Upper Tolerance')).toBeTruthy()
+      expect(label('Lower Tolerance')).toBeTruthy()
+      expect(label('Standard').closest('label').querySelector('input').type).toBe('number')
+    } finally { off() }
   })
 })

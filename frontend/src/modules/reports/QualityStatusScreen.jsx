@@ -1,3 +1,5 @@
+import { isGaugeRow } from '../../utils/qualityResult'
+import { qualityMachineText, JOBWORK_MACHINE_LABEL } from '../../utils/jobworkQc'
 import { useEffect, useMemo, useState } from 'react'
 import { ComposedChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceArea, ReferenceLine } from 'recharts'
 import { useChartType, series } from '../../components/reports/ChartTypeToggle'
@@ -160,8 +162,10 @@ export default function QualityStatusScreen() {
       const base = {
         prd_no: i.prd_no,
         stage: stageLabel({ seq: i.stage_seq, position: i.stage_position, operation: i.operation }),
-        machine: i.machine_id ? `${i.machine_name ?? ''} (${i.machine_id})` : '—',
-        machine_category: i.machine_category,
+        // 054: an incoming jobwork inspection has no machine (the 029 view
+        // gives category 'Uncategorised' for it) -- shown as "Jobwork".
+        machine: qualityMachineText(i, (x) => `${x.machine_name ?? ''} (${x.machine_id})`),
+        machine_category: i.machine_id ? i.machine_category : JOBWORK_MACHINE_LABEL,
         log_date: i.log_date,
         shift_code: i.shift_code,
         employee: employeeLabelForId(i.employee_id, opts.employees) || '—',
@@ -171,7 +175,7 @@ export default function QualityStatusScreen() {
       const list = byLog.get(i.quality_log_id) ?? []
       if (list.length === 0) out.push({ ...base, key: `${i.quality_log_id}-none`, parameter: '—', result: null })
       for (const x of list) {
-        const gauge = x.check_type === 'Gauge' // 048
+        const gauge = isGaugeRow(x) // 048 / Job Work
         const b = gauge ? null : toleranceBand(x)
         out.push({
           ...base,

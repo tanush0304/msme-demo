@@ -38,7 +38,7 @@ export function dailyQuality(inspections, days) {
 /** Tolerance band of a reading: standard - lower .. standard + upper
  * (same rule as "quality log results"); null without a standard. */
 export function toleranceBand(r) {
-  if (r.standard == null || isGaugeRow(r)) return null // Gauge: no band
+  if (r.standard == null || isGaugeRow(r)) return null // Gauge / Job Work: no band
   const std = num(r.standard)
   return { min: std - num(r.lower_tolerance), max: std + num(r.upper_tolerance), std }
 }
@@ -48,7 +48,7 @@ export function toleranceBand(r) {
  * reading's date / PRD; `partForPrd(prd)` its part. */
 export function parameterSeries(readings, inspectionById, partForPrd, part, parameter) {
   return readings
-    .filter((r) => r.quality_parameter === parameter && r.check_type !== 'Gauge') // 048: gauge has no value to chart
+    .filter((r) => r.quality_parameter === parameter && !isGaugeRow(r)) // 048 / Job Work: gauge has no value to chart
     .map((r) => ({ r, i: inspectionById.get(r.quality_log_id) }))
     .filter(({ i }) => i && partForPrd(i.prd_no) === part)
     .sort((a, b) => (a.i.log_date < b.i.log_date ? -1 : a.i.log_date > b.i.log_date ? 1 : a.r.reading_id - b.r.reading_id))
@@ -85,7 +85,7 @@ export function qualityTrend(inspections, days, { maxDays = 62, dayLabel = (d) =
  * (null when the parameter is not a Gauge check for that part). */
 export function gaugeSummary(readings, inspectionById, partForPrd, part, parameter) {
   const rows = readings
-    .filter((r) => r.quality_parameter === parameter && r.check_type === 'Gauge')
+    .filter((r) => r.quality_parameter === parameter && isGaugeRow(r))
     .filter((r) => {
       const i = inspectionById.get(r.quality_log_id)
       return i && partForPrd(i.prd_no) === part

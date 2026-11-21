@@ -63,3 +63,20 @@ describe('Quality Status Target (053)', () => {
     expect(formatTarget(null)).toBe('—')
   })
 })
+
+describe('Job Work rows are Gauge (056)', () => {
+  const jw = { job_work_code: 'HT', check_type: 'Measured', standard: 30, upper_tolerance: 2, lower_tolerance: 2, gauge_standard: '58-62 HRC' }
+  it('isGaugeRow: job_work_code set -> Gauge; blank / null -> by check_type', () => {
+    expect(isGaugeRow(jw)).toBe(true)
+    expect(isGaugeRow({ job_work_code: '  ', check_type: 'Measured' })).toBe(false)
+    expect(isGaugeRow({ job_work_code: null, check_type: 'Gauge' })).toBe(true)
+    expect(isGaugeRow({ check_type: 'Measured' })).toBe(false)
+  })
+  it('Standard / Target = text, no tolerance band', () => {
+    expect(standardText(jw)).toBe('58-62 HRC')
+    expect(readingTarget(jw)).toBe('58-62 HRC')
+    expect(formatTarget(readingTarget(jw))).toBe('58-62 HRC')
+    expect(toleranceBand(jw)).toBeNull()
+    expect(toleranceBand({ standard: 30, upper_tolerance: 2, lower_tolerance: 1 })).toEqual({ min: 29, max: 32, std: 30 })
+  })
+})
