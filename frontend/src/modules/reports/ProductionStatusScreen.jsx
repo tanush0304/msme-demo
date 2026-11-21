@@ -25,6 +25,7 @@ const SCREEN = 'Production_Status'
 import { listOrdersByPrd } from '../../data/queries/customerOrders'
 import { getStagesForPrd } from '../../data/queries/routeCards'
 import { getStageAggregatesForPrd } from '../../data/queries/productionLogs'
+import { prdsInRows, allPrdsKpis } from '../../utils/allPrdsKpis'
 
 const EMPTY_FILTERS = { prdNo: '', machineId: '', shiftCode: '', employeeId: '' }
 
@@ -106,6 +107,27 @@ export default function ProductionStatusScreen() {
       cancelled = true
     }
   }, [kpiPrd])
+  // Demo: no PRD applied -> the cards are totals over every PRD in the period's rows.
+  const allPrdNos = useMemo(() => (kpiPrd ? [] : prdsInRows(rows)), [kpiPrd, rows])
+  const [allKpi, setAllKpi] = useState(null)
+  useEffect(() => {
+    setAllKpi(null)
+    if (kpiPrd || loading) return undefined
+    let cancelled = false
+    Promise.all([
+      listOrdersByPrd(),
+      ...allPrdNos.map((prd) => Promise.all([getStagesForPrd(prd), getStageAggregatesForPrd(prd)])),
+    ])
+      .then(([orders, ...perStage]) => {
+        if (cancelled) return
+        const perPrd = Object.fromEntries(allPrdNos.map((prd, i) => [prd, prdProducedKpis({ stages: perStage[i][0], aggregates: perStage[i][1] })]))
+        setAllKpi(allPrdsKpis({ prdNos: allPrdNos, orders, perPrd }))
+      })
+      .catch((e) => !cancelled && setError(e.message))
+    return () => {
+      cancelled = true
+    }
+  }, [kpiPrd, loading, allPrdNos])
   const detail = useMemo(() => productionStatusRows(rows), [rows])
   // Daily, or monthly above 62 days (efficiency recomputed from the month's sums).
   // 046: rows carry good_qty / target_qty -> "Good vs Target", efficiency = good / target.
@@ -154,8 +176,17 @@ export default function ProductionStatusScreen() {
         <Banner tone="error" message={error} onClose={() => setError(null)} />
 
         {!kpiPrd ? (
-          <div className="rounded-xl border border-dashed border-gray-300 bg-white px-4 py-6 text-center text-sm text-gray-500" data-testid="kpi-select-prd">
-            Select a PRD No to see its order qty, produced qty and efficiency.
+          <div className="space-y-1" data-testid="kpi-all-prds">
+            <p className="px-1 text-xs font-medium text-gray-600">
+              {loading ? 'All PRDs' : allPrdNos.length ? `All PRDs — ${allPrdNos.length} PRD${allPrdNos.length === 1 ? '' : 's'} with production in this period` : 'All PRDs — No production in this period'}
+            </p>
+            <KpiCardRow columns={5}>
+              <KpiCard label="PRD Qty" value={formatQty(allKpi?.prd_qty)} unit="Nos" sub={`All PRDs · ${allPrdNos.length} PRD${allPrdNos.length === 1 ? '' : 's'}`} icon={Package} tone="green" loading={loading || !allKpi} />
+              <KpiCard label="Qty Produced (last stage good)" value={formatQty(allKpi?.produced)} unit="Nos" sub="All PRDs · to date" icon={Settings} tone="orange" loading={loading || !allKpi} />
+              <KpiCard label="Production Efficiency" value={kpis.efficiency_pct == null ? '—' : kpis.efficiency_pct.toFixed(1)} unit={kpis.efficiency_pct == null ? '' : '%'} sub="All PRDs · this period" icon={BarChart3} tone="purple" loading={loading} />
+              <KpiCard label="Reject Quantity" value={formatQty(kpis.rejected)} unit="Nos" sub={`(${fmtPct2(kpis.reject_pct)}, all PRDs, this period)`} icon={ShieldX} tone="red" loading={loading} />
+              <KpiCard label="Rework Quantity" value={formatQty(kpis.rework)} unit="Nos" sub={`(${fmtPct2(kpis.rework_pct)}, all PRDs, this period)`} icon={RefreshCw} tone="teal" loading={loading} />
+            </KpiCardRow>
           </div>
         ) : (
           <KpiCardRow columns={5}>
