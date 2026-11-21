@@ -2,6 +2,7 @@
 // (029: one row per inspection, inspection_result Accepted / Rejected /
 // No readings) and "quality log results" (one row per reading).
 import { groupBy, pct } from './reportAggregates'
+import { isGaugeRow } from './qualityResult'
 
 function num(v) {
   const n = Number(v)
@@ -37,7 +38,7 @@ export function dailyQuality(inspections, days) {
 /** Tolerance band of a reading: standard - lower .. standard + upper
  * (same rule as "quality log results"); null without a standard. */
 export function toleranceBand(r) {
-  if (r.standard == null) return null
+  if (r.standard == null || isGaugeRow(r)) return null // Gauge: no band
   const std = num(r.standard)
   return { min: std - num(r.lower_tolerance), max: std + num(r.upper_tolerance), std }
 }
@@ -91,4 +92,20 @@ export function gaugeSummary(readings, inspectionById, partForPrd, part, paramet
     })
   if (rows.length === 0) return null
   return { gauge: true, ok: rows.filter((r) => r.gauge_result === 'OK').length, notOk: rows.filter((r) => r.gauge_result === 'Not OK').length }
+}
+
+// ---------------------------------------------------------------- 053
+/** Quality Status "Target" for a reading: Measured -> numeric standard,
+ * Gauge -> its text gauge_standard (display only). Blank -> null. */
+export function readingTarget(row) {
+  const v = isGaugeRow(row) ? row?.gauge_standard : row?.standard
+  if (v === null || v === undefined || String(v).trim() === '') return null
+  return typeof v === 'string' ? v.trim() : v
+}
+
+/** Number -> Indian grouping (max 3 decimals); text (gauge spec) as typed; null -> '—'. */
+export function formatTarget(v) {
+  if (v === null || v === undefined || String(v).trim() === '') return '—'
+  if (typeof v === 'number') return v.toLocaleString('en-IN', { maximumFractionDigits: 3 })
+  return String(v).trim()
 }

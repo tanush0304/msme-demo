@@ -1,4 +1,4 @@
-import { computeQualityResult, isGaugeRow, gaugeResultLabel, readingValueText, readingResultText } from '../../utils/qualityResult'
+import { computeQualityResult, isGaugeRow, gaugeResultLabel, readingValueText, readingResultText, standardText } from '../../utils/qualityResult'
 import GaugeButtons from '../../components/GaugeButtons'
 import { useEffect, useState } from 'react'
 import { ClipboardCheck, Pencil } from 'lucide-react'
@@ -49,6 +49,8 @@ const HISTORY_COLUMNS = [
   { key: 'inspected_by', label: 'Inspected By' },
   { key: 'quality_parameter', label: 'Parameter' },
   { key: 'check_type_text', label: 'Check Type', needsCheckType: true },
+  { key: 'instrument_text', label: 'Instrument', needsCheckType: true }, // gauge_ref
+  { key: 'standard_text', label: 'Standard' }, // Measured number / Gauge text (053)
   { key: 'value_text', label: 'Observed Value' },
   { key: 'result_text', label: 'Result', type: 'status' },
 ]
@@ -230,6 +232,7 @@ export default function QualityInspectionScreen({ role }) {
           observed_value: '',
           check_type: p.check_type ?? 'Measured', // 048
           gauge_ref: p.gauge_ref ?? '',
+          gauge_standard: p.gauge_standard ?? null, // 053
           gauge_result: '',
         }))
       )
@@ -315,7 +318,9 @@ export default function QualityInspectionScreen({ role }) {
     // 048: a Gauge reading shows OK / Not OK and Accepted / Rejected
     value_text: readingValueText(r),
     result_text: readingResultText(r),
-    check_type_text: isGaugeRow(r) ? `Gauge${r.gauge_ref ? ` (${r.gauge_ref})` : ''}` : 'Measured',
+    check_type_text: isGaugeRow(r) ? 'Gauge' : 'Measured',
+    instrument_text: r.gauge_ref || '—',
+    standard_text: standardText(r) ?? '—',
   }))
   // 048: the view only has check_type once 048 is run
   const historyColumns = HISTORY_COLUMNS.filter((c) => !c.needsCheckType || history.some((r) => 'check_type' in r))
@@ -430,9 +435,6 @@ export default function QualityInspectionScreen({ role }) {
                 options={operationOptions}
               />
             </Field>
-            <Field label="Cycle Time (min)">
-              <AutoFillBox value={resolvedStage?.cycle_time_min ?? ''} />
-            </Field>
             {noEligibleForMachine && (
               <p className="text-sm text-amber-600 sm:col-span-3">
                 No stage of this product is set up for this machine in Cycle Time Master.
@@ -474,6 +476,7 @@ export default function QualityInspectionScreen({ role }) {
                   <thead>
                     <tr className="bg-gray-50 text-brandnavy text-left">
                       <th className="px-3 py-1.5 font-semibold">Parameter</th>
+                      <th className="px-3 py-1.5 font-semibold">Instrument</th>
                       <th className="px-3 py-1.5 font-semibold">Standard</th>
                       <th className="px-3 py-1.5 font-semibold">Upper Tol.</th>
                       <th className="px-3 py-1.5 font-semibold">Lower Tol.</th>
@@ -490,13 +493,9 @@ export default function QualityInspectionScreen({ role }) {
                       const noLimit = !gauge && (row.standard === null || row.standard === undefined)
                       return (
                         <tr key={row.quality_parameter_id} className="border-t border-gray-100" data-check-type={row.check_type}>
-                          <td className="px-3 py-1">
-                            {row.quality_parameter}
-                            {gauge && (
-                              <span className="block text-[10px] text-gray-500">Gauge{row.gauge_ref ? `: ${row.gauge_ref}` : ''}</span>
-                            )}
-                          </td>
-                          <td className="px-3 py-1 text-gray-500">{gauge ? '—' : row.standard ?? '—'}</td>
+                          <td className="px-3 py-1">{row.quality_parameter}</td>
+                          <td className="px-3 py-1 text-gray-500" data-testid="instrument-cell">{row.gauge_ref || '—'}</td>
+                          <td className="px-3 py-1 text-gray-500" data-testid="standard-cell">{standardText(row) ?? '—'}</td>
                           <td className="px-3 py-1 text-gray-500">{gauge ? '—' : row.upper_tolerance ?? '—'}</td>
                           <td className="px-3 py-1 text-gray-500">{gauge ? '—' : row.lower_tolerance ?? '—'}</td>
                           <td className="px-3 py-1">
@@ -615,6 +614,7 @@ function InspectionEditPanel({ rows, employees, shifts, onSave, onCancel }) {
           <thead>
             <tr className="bg-gray-50 text-brandnavy text-left">
               <th className="px-3 py-1.5 font-semibold">Parameter</th>
+              <th className="px-3 py-1.5 font-semibold">Instrument</th>
               <th className="px-3 py-1.5 font-semibold">Standard</th>
               <th className="px-3 py-1.5 font-semibold">Upper Tol.</th>
               <th className="px-3 py-1.5 font-semibold">Lower Tol.</th>
@@ -628,11 +628,9 @@ function InspectionEditPanel({ rows, employees, shifts, onSave, onCancel }) {
               const noLimit = !gauge && (r.standard === null || r.standard === undefined)
               return (
                 <tr key={r.reading_id} className="border-t border-gray-100">
-                  <td className="px-3 py-1">
-                    {r.quality_parameter}
-                    {gauge && <span className="block text-[10px] text-gray-500">Gauge{r.gauge_ref ? `: ${r.gauge_ref}` : ''}</span>}
-                  </td>
-                  <td className="px-3 py-1 text-gray-500">{gauge ? '—' : r.standard ?? '—'}</td>
+                  <td className="px-3 py-1">{r.quality_parameter}</td>
+                  <td className="px-3 py-1 text-gray-500">{r.gauge_ref || '—'}</td>
+                  <td className="px-3 py-1 text-gray-500">{standardText(r) ?? '—'}</td>
                   <td className="px-3 py-1 text-gray-500">{gauge ? '—' : r.upper_tolerance ?? '—'}</td>
                   <td className="px-3 py-1 text-gray-500">{gauge ? '—' : r.lower_tolerance ?? '—'}</td>
                   <td className="px-3 py-1">
