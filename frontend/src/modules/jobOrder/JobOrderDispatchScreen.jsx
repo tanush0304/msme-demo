@@ -65,6 +65,7 @@ export function mergeDispatchRows(statusRows, tableRows) {
   return [...live, ...voided].sort((a, b) => String(b.dispatch_date).localeCompare(String(a.dispatch_date)))
 }
 import { stageBackText } from '../../utils/reportOrders'
+import { outsourcedStageLabel } from '../../utils/jobRouteCard'
 import Banner from '../../components/Banner'
 import OrderLineFields from '../../components/OrderLineFields'
 
@@ -269,6 +270,11 @@ export default function JobOrderDispatchScreen({ role }) {
 
   const selectedStage = eligibleStages.find((s) => String(s.id) === String(stageId))
   const selectedProgress = selectedStage ? stageStatus[selectedStage.id] : null
+  // Stage pill from this stage's own DCs (the view's stage_status keeps
+  // "Partially Received" until the stored stage status turns Received).
+  const selectedStageStatus = selectedStage
+    ? outsourcedStageLabel({ status: selectedProgress?.stage_record_status }, dispatches.filter((d) => String(d.stage_id) === String(selectedStage.id)))
+    : 'Not Sent'
   // A stage can be split across vendors: every DC still open on it.
   const openDcsForStage = selectedStage ? dispatches.filter((d) => d.is_open && String(d.stage_id) === String(selectedStage.id)) : []
 
@@ -293,6 +299,10 @@ export default function JobOrderDispatchScreen({ role }) {
     const qty = Number(form.qty)
     if (!Number.isFinite(qty) || qty <= 0) {
       setError('Qty must be a number greater than zero.')
+      return
+    }
+    if (!Number.isInteger(qty)) {
+      setError('Qty must be a whole number.')
       return
     }
     // Available = accepted pieces reaching this stage (previous stage's good
@@ -389,7 +399,7 @@ export default function JobOrderDispatchScreen({ role }) {
               <div className="flex h-[34px] items-center"><StatusPill status={editingRow.status} /></div>
             </Field>
             <Field label={`Qty (${dispatchLimitText(dispatchEditLimits(editingRow, editAvailable))})`} required>
-              <TextInput type="number" value={editDraft.qty} onChange={(e) => setEditDraft((d) => ({ ...d, qty: e.target.value }))} />
+              <TextInput type="number" min="0" step="1" value={editDraft.qty} onChange={(e) => setEditDraft((d) => ({ ...d, qty: e.target.value }))} />
             </Field>
             <Field label="Despatch Date" required>
               <TextInput type="date" value={editDraft.dispatch_date} onChange={(e) => setEditDraft((d) => ({ ...d, dispatch_date: e.target.value }))} />
@@ -472,13 +482,13 @@ export default function JobOrderDispatchScreen({ role }) {
             <AutoFillBox value={expectedReceiptDate()} />
           </Field>
           <Field label={`Qty${availableQty !== null ? ` (Available: ${availableQty})` : ''}`} required>
-            <TextInput type="number" value={form.qty} onChange={handleField('qty')} />
+            <TextInput type="number" min="0" step="1" value={form.qty} onChange={handleField('qty')} />
           </Field>
           {selectedStage && (
             <div className="sm:col-span-3 rounded border border-slate-200 bg-white p-2.5 text-[13px]">
               <div className="mb-1.5 flex flex-wrap items-center gap-2">
                 <span className="font-semibold text-slate-700">This stage:</span>
-                <StatusPill status={selectedProgress?.stage_status ?? 'Not Sent'} />
+                <StatusPill status={selectedStageStatus} />
                 <span className="text-slate-600">{stageBackText(selectedProgress)}</span>
               </div>
               {openDcsForStage.length === 0 ? (
