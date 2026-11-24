@@ -60,6 +60,9 @@ describe('friendlyDbMessage', () => {
   })
   it('raw permission / duplicate key / network / login messages', () => {
     expect(friendlyDbMessage('permission denied for table "customer orders"')).toBe('You do not have permission to make this change.')
+    // RLS refusal (e.g. an operator write to a master)
+    expect(friendlyDbMessage('new row violates row-level security policy for table "customers master"')).toBe('You do not have permission to make this change.')
+    expect(dbErrorMessage({ code: '42501', message: 'new row violates row-level security policy for table "quality master"' })).toBe('You do not have permission to make this change.')
     expect(friendlyDbMessage('duplicate key value violates unique constraint "customers_pkey"')).toBe('This record already exists (a value that must be unique is already used).')
     expect(friendlyDbMessage('Failed to fetch')).toBe("Can't reach the server -- check your connection and try again.")
     expect(friendlyDbMessage('Invalid login credentials')).toBe('Invalid username or password')

@@ -22,6 +22,8 @@ const FRIENDLY = [
   [/^(?:PRD\s+)?(PRD-\d+)\s+has started \(\d+ row\(s\) in "production logs"\) and cannot be cancelled/i,
     (m) => `${m[1]} can't be cancelled: production has already started on it. Only PRDs with no production entries can be cancelled.`],
   [/^permission denied for (table|relation|sequence|view|function)\b/i, () => PERMISSION_TEXT],
+  // an RLS refusal (e.g. a write the user's role may not make) reads the same way
+  [/violates row-level security policy/i, () => PERMISSION_TEXT],
   [/^duplicate key value violates unique constraint/i, () => 'This record already exists (a value that must be unique is already used).'],
   [/^(Failed to fetch|NetworkError|Load failed|TypeError: Failed to fetch)/i, () => "Can't reach the server -- check your connection and try again."],
   [/^Invalid login credentials$/i, () => 'Invalid username or password'],
