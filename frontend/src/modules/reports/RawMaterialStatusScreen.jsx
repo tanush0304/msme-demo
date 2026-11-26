@@ -6,6 +6,7 @@ import PageHeader from '../../components/PageHeader'
 import ReportFilterBar from '../../components/reports/ReportFilterBar'
 import useReportPeriod from '../../components/reports/useReportPeriod'
 import { KpiCard, KpiCardRow, formatQty } from '../../components/reports/KpiCard'
+import { categoryAxisProps } from '../../utils/categoryAxis'
 import ChartGroup from '../../components/reports/ChartGroup'
 import ChartCard, { CHART_COLORS, AXIS_TICK, DonutChart } from '../../components/reports/ChartCard'
 import ReportTable from '../../components/reports/ReportTable'
@@ -234,6 +235,8 @@ export default function RawMaterialStatusScreen() {
     ].filter(Boolean).join(' · '),
   }
 
+  // X-axis labels: shared rule (utils/categoryAxis.js); the card grows with the axis.
+  const typeAxis = categoryAxisProps(byType.map((d) => d.label))
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader title="Raw Material Status Report" subtitle="Right Material | Right Quantity | Right Production" />
@@ -267,7 +270,7 @@ export default function RawMaterialStatusScreen() {
             icon={BarChart3}
             loading={loading}
             empty={byType.length === 0}
-            height={260}
+            height={260 + typeAxis.extraHeight}
             {...chartProps}
             exportKey="Stock_Position_By_RM_Type"
             exportData={seriesExportData(byType, 'label', 'RM Type', [
@@ -277,9 +280,9 @@ export default function RawMaterialStatusScreen() {
               { key: 'closing', label: `Closing Stock${unitLabel}` },
             ])}
           >
-            <ComposedChart data={byType} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+            <ComposedChart data={byType} margin={{ top: 8, right: 8, left: typeAxis.marginLeft, bottom: 0 }}>
               <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
-              <XAxis dataKey="label" tick={AXIS_TICK} interval={0} />
+              <XAxis dataKey="label" {...typeAxis.axis} />
               <YAxis tick={AXIS_TICK} width={48} />
               <Tooltip formatter={(v) => `${formatQty(v)} ${chartUom ?? ''}`} />
               <Legend wrapperStyle={{ fontSize: 12 }} />

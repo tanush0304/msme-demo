@@ -5,6 +5,7 @@ import { Settings, Hourglass, PieChart as PieIcon, BarChart3, TrendingUp } from 
 import PageHeader from '../../components/PageHeader'
 import ReportFilterBar from '../../components/reports/ReportFilterBar'
 import { KpiCard, KpiCardRow, formatQty } from '../../components/reports/KpiCard'
+import { categoryAxisProps } from '../../utils/categoryAxis'
 import ChartGroup from '../../components/reports/ChartGroup'
 import ChartCard, { CHART_COLORS, AXIS_TICK, DonutChart } from '../../components/reports/ChartCard'
 import ReportTable from '../../components/reports/ReportTable'
@@ -101,6 +102,8 @@ export default function DowntimeScreen() {
   const empty = hourRows.length === 0 && setupRows.length === 0
   const periodText = `${displayDate(applied.from)} to ${displayDate(applied.to)}`
 
+  // X-axis labels: shared rule (utils/categoryAxis.js); the card grows with the axis.
+  const typeAxis = categoryAxisProps(typeData.map((d) => d.label))
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader title="Downtime Report" subtitle="Right Material | Right Quantity | Right Production" />
@@ -131,14 +134,14 @@ export default function DowntimeScreen() {
             icon={BarChart3}
             loading={loading}
             empty={empty || summary.lostMin === 0}
-            height={260}
+            height={260 + typeAxis.extraHeight}
             {...chartProps}
             exportKey="Hours_By_Type"
             exportData={seriesExportData(typeData, 'label', 'Downtime Type', [{ key: 'hours', label: 'Hours Lost' }])}
           >
-            <ComposedChart data={typeData} margin={{ top: 18, right: 8, left: 0, bottom: 0 }}>
+            <ComposedChart data={typeData} margin={{ top: 18, right: 8, left: typeAxis.marginLeft, bottom: 0 }}>
               <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
-              <XAxis dataKey="label" tick={{ ...AXIS_TICK, fontSize: 10 }} interval={0} angle={-25} textAnchor="end" height={50} />
+              <XAxis dataKey="label" {...typeAxis.axis} />
               <YAxis tick={AXIS_TICK} width={40} />
               <Tooltip formatter={(v) => `${fmtHrs(v)} Hrs`} />
               {series(chartType, {

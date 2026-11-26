@@ -6,6 +6,7 @@ import PageHeader from '../../components/PageHeader'
 import ReportFilterBar from '../../components/reports/ReportFilterBar'
 import useReportPeriod from '../../components/reports/useReportPeriod'
 import { KpiCard, KpiCardRow, formatQty } from '../../components/reports/KpiCard'
+import { categoryAxisProps } from '../../utils/categoryAxis'
 import ChartGroup from '../../components/reports/ChartGroup'
 import ChartCard, { CHART_COLORS, AXIS_TICK, DonutChart } from '../../components/reports/ChartCard'
 import ReportTable, { ReportBadge } from '../../components/reports/ReportTable'
@@ -148,6 +149,9 @@ export default function JobOrderStatusScreen() {
     },
   ]
 
+  // X-axis labels: shared rule (utils/categoryAxis.js); the card grows with the axis.
+  const opAxis = categoryAxisProps(byOperation.map((d) => d.label))
+  const vendorAxis = categoryAxisProps(byVendor.map((d) => d.label))
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader title="Job Order Status Report" subtitle="Right Material | Right Quantity | Right Production" />
@@ -178,7 +182,7 @@ export default function JobOrderStatusScreen() {
             icon={BarChart3}
             loading={loading}
             empty={rows.length === 0}
-            height={260}
+            height={260 + opAxis.extraHeight}
             screen={SCREEN}
             exportKey="Despatched_vs_Pending"
             filterText={filterText}
@@ -187,9 +191,9 @@ export default function JobOrderStatusScreen() {
               { key: 'pending', label: 'Quantity Pending' },
             ])}
           >
-            <ComposedChart data={byOperation} margin={{ top: 22, right: 8, left: 0, bottom: 0 }}>
+            <ComposedChart data={byOperation} margin={{ top: 22, right: 8, left: opAxis.marginLeft, bottom: 0 }}>
               <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
-              <XAxis dataKey="label" tick={AXIS_TICK} interval={0} />
+              <XAxis dataKey="label" {...opAxis.axis} />
               <YAxis tick={AXIS_TICK} width={44} allowDecimals={false} />
               <Tooltip formatter={(v) => `${formatQty(v)} Nos`} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
@@ -230,15 +234,15 @@ export default function JobOrderStatusScreen() {
             icon={Users}
             loading={loading}
             empty={byVendor.length === 0}
-            height={260}
+            height={260 + vendorAxis.extraHeight}
             screen={SCREEN}
             exportKey="Top5_Vendors_Pending"
             filterText={filterText}
             exportData={seriesExportData(byVendor, 'label', 'Vendor', [{ key: 'value', label: 'Pending Quantity (Nos)' }])}
           >
-            <ComposedChart data={byVendor} margin={{ top: 22, right: 8, left: 0, bottom: 0 }}>
+            <ComposedChart data={byVendor} margin={{ top: 22, right: 8, left: vendorAxis.marginLeft, bottom: 0 }}>
               <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
-              <XAxis dataKey="label" tick={AXIS_TICK} interval={0} />
+              <XAxis dataKey="label" {...vendorAxis.axis} />
               <YAxis tick={AXIS_TICK} width={44} allowDecimals={false} />
               <Tooltip formatter={(v) => `${formatQty(v)} Nos`} />
               {series(chartType, {

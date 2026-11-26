@@ -6,6 +6,7 @@ import PageHeader from '../../components/PageHeader'
 import ReportFilterBar from '../../components/reports/ReportFilterBar'
 import useReportPeriod from '../../components/reports/useReportPeriod'
 import { KpiCard, KpiCardRow, formatQty } from '../../components/reports/KpiCard'
+import { categoryAxisProps } from '../../utils/categoryAxis'
 import ChartGroup from '../../components/reports/ChartGroup'
 import ChartCard, { CHART_COLORS, AXIS_TICK, DonutChart } from '../../components/reports/ChartCard'
 import ReportTable from '../../components/reports/ReportTable'
@@ -146,6 +147,8 @@ export default function WipStatusScreen() {
   // Rows but nothing left in stores -> say so (empty period keeps the default).
   const balanceEmptyText = empty ? undefined : `No WIP stock at ${displayDate(r.applied.to)} -- everything received has been issued.`
 
+  // X-axis labels: shared rule (utils/categoryAxis.js); the card grows with the axis.
+  const opAxis = categoryAxisProps(byOperation.map((d) => d.label))
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <PageHeader title="WIP Status Report" subtitle="Right Material | Right Quantity | Right Production" />
@@ -171,6 +174,7 @@ export default function WipStatusScreen() {
         <ChartGroup title="WIP Status Report" screen={SCREEN}>
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
           <ChartCard
+            height={240 + opAxis.extraHeight}
             title="WIP Quantity by Operation"
             icon={BarChart3}
             loading={loading}
@@ -180,9 +184,9 @@ export default function WipStatusScreen() {
             exportKey="Quantity_By_Operation"
             exportData={seriesExportData(byOperation, 'label', 'Operation', [{ key: 'value', label: 'Balance WIP (Nos)' }])}
           >
-            <ComposedChart data={byOperation} margin={{ top: 20, right: 8, left: 0, bottom: 0 }}>
+            <ComposedChart data={byOperation} margin={{ top: 20, right: 8, left: opAxis.marginLeft, bottom: 0 }}>
               <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
-              <XAxis dataKey="label" tick={AXIS_TICK} interval={0} />
+              <XAxis dataKey="label" {...opAxis.axis} />
               <YAxis tick={AXIS_TICK} width={44} allowDecimals={false} />
               <Tooltip formatter={(v) => `${formatQty(v)} Nos`} />
               {series(chartType, {

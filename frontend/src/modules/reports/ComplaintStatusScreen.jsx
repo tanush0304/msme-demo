@@ -6,6 +6,7 @@ import PageHeader from '../../components/PageHeader'
 import ReportFilterBar from '../../components/reports/ReportFilterBar'
 import useReportPeriod from '../../components/reports/useReportPeriod'
 import { KpiCard, KpiCardRow, formatQty } from '../../components/reports/KpiCard'
+import { categoryAxisProps } from '../../utils/categoryAxis'
 import ChartGroup from '../../components/reports/ChartGroup'
 import ChartCard, { CHART_COLORS, AXIS_TICK } from '../../components/reports/ChartCard'
 import ReportTable, { ReportBadge } from '../../components/reports/ReportTable'
@@ -104,10 +105,15 @@ export default function ComplaintStatusScreen() {
   const countExport = (data, category) => seriesExportData(data, 'label', category, [{ key: 'value', label: 'Complaints' }])
   const chartProps = { screen: SCREEN, filterText }
 
-  const countChart = (data, name, color, colors) => (
-    <ComposedChart data={data} margin={{ top: 22, right: 8, left: 0, bottom: 0 }}>
+  // X-axis labels: shared rule (utils/categoryAxis.js); the card grows with the axis.
+  const axisOf = (data) => categoryAxisProps(data.map((d) => d.label))
+  const cardHeight = (data) => 260 + axisOf(data).extraHeight
+  const countChart = (data, name, color, colors) => {
+    const ax = axisOf(data)
+    return (
+    <ComposedChart data={data} margin={{ top: 22, right: 8, left: ax.marginLeft, bottom: 0 }}>
       <CartesianGrid stroke={CHART_COLORS.grid} vertical={false} />
-      <XAxis dataKey="label" tick={{ ...AXIS_TICK, fontSize: 10 }} interval={0} angle={data.length > 4 ? -25 : 0} textAnchor={data.length > 4 ? 'end' : 'middle'} height={data.length > 4 ? 56 : 30} />
+      <XAxis dataKey="label" {...ax.axis} />
       <YAxis tick={AXIS_TICK} width={36} allowDecimals={false} />
       <Tooltip formatter={(v) => `${formatQty(v)} complaints`} />
       {series(chartType, {
@@ -121,7 +127,8 @@ export default function ComplaintStatusScreen() {
         ],
       })}
     </ComposedChart>
-  )
+    )
+  }
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
@@ -145,16 +152,16 @@ export default function ComplaintStatusScreen() {
 
         <ChartGroup title="Customer Complaint Report" screen={SCREEN}>
         <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
-          <ChartCard title="Complaints by Customer" icon={Users} loading={loading} empty={empty} height={260} {...chartProps} exportKey="By_Customer" exportData={countExport(byCustomer, 'Customer')}>
+          <ChartCard title="Complaints by Customer" icon={Users} loading={loading} empty={empty} height={cardHeight(byCustomer)} {...chartProps} exportKey="By_Customer" exportData={countExport(byCustomer, 'Customer')}>
             {countChart(byCustomer, 'Complaints', CHART_COLORS.blue)}
           </ChartCard>
-          <ChartCard title="Complaints by Defect Type" icon={Bug} loading={loading} empty={empty} height={260} {...chartProps} exportKey="By_Defect_Type" exportData={countExport(byDefect, 'Defect Type')}>
+          <ChartCard title="Complaints by Defect Type" icon={Bug} loading={loading} empty={empty} height={cardHeight(byDefect)} {...chartProps} exportKey="By_Defect_Type" exportData={countExport(byDefect, 'Defect Type')}>
             {countChart(byDefect, 'Complaints', CHART_COLORS.purple)}
           </ChartCard>
-          <ChartCard title="Complaints by Part No" icon={Package} loading={loading} empty={empty} height={260} {...chartProps} exportKey="By_Part_No" exportData={countExport(byPart, 'Part No')}>
+          <ChartCard title="Complaints by Part No" icon={Package} loading={loading} empty={empty} height={cardHeight(byPart)} {...chartProps} exportKey="By_Part_No" exportData={countExport(byPart, 'Part No')}>
             {countChart(byPart, 'Complaints', CHART_COLORS.green)}
           </ChartCard>
-          <ChartCard title="Complaints by Severity" icon={Gauge} loading={loading} empty={empty} height={260} {...chartProps} exportKey="By_Severity" exportData={countExport(bySeverity, 'Severity')}>
+          <ChartCard title="Complaints by Severity" icon={Gauge} loading={loading} empty={empty} height={cardHeight(bySeverity)} {...chartProps} exportKey="By_Severity" exportData={countExport(bySeverity, 'Severity')}>
             {countChart(bySeverity, 'Complaints', CHART_COLORS.red, SEVERITY_COLORS)}
           </ChartCard>
         </div>
