@@ -15,7 +15,7 @@ export function useChartGroup() {
  * Wraps the chart grid of one report screen and adds ONE "Expand all"
  * button above it. Expand all opens a ~90 % viewport window with every
  * chart of the screen that has data (loading / empty ones are left out),
- * 2 per row (1 on phones), each with its own title + filter line. Inside
+ * one below the other, full width (every screen size; same in the PNG), each with its own title + filter line. Inside
  * that window only: "Export PNG" = one image of the whole grid with the
  * screen title and "Exported DD-MM-YYYY" -> "<screen>_All_charts_<date>.png".
  *
@@ -145,7 +145,7 @@ export default function ChartGroup({ title, screen, children }) {
                     <p className="text-[16px] font-bold text-[#0B2A5B]">{title}</p>
                     {exporting && <p className="text-[12px] text-slate-500">{exportedLine()}</p>}
                   </div>
-                  <div ref={setGrid} className="grid grid-cols-1 gap-3 lg:grid-cols-2" data-testid="chart-group-grid" />
+                  <div ref={setGrid} className="grid grid-cols-1 gap-3" data-testid="chart-group-grid" />
                 </div>
               </div>
             </div>

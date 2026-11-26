@@ -62,6 +62,19 @@ describe('ChartGroup', () => {
     expect(within(dialog).queryByRole('button', { name: /Excel/ })).toBeNull() // PNG only
   })
 
+  it('single column at every width, each chart full width (window + PNG use the same grid)', () => {
+    group()
+    fireEvent.click(screen.getByRole('button', { name: /Expand all/ }))
+    const grid = screen.getByTestId('chart-group-grid')
+    expect(grid.className.split(/\s+/)).toContain('grid-cols-1')
+    expect(grid.className).not.toMatch(/(^|\s)\w+:grid-cols-/) // no sm: / md: / lg: / xl: columns
+    expect(screen.getByTestId('chart-group-capture').contains(grid)).toBe(true) // the PNG captures this grid
+    for (const cell of within(grid).getAllByTestId('chart-group-cell')) {
+      expect(cell.parentElement).toBe(grid)
+      expect(cell.className).not.toMatch(/col-span|(^|\s)w-\d|max-w-/)
+    }
+  })
+
   it('empty charts are left out of the window', () => {
     group({ bEmpty: true })
     fireEvent.click(screen.getByRole('button', { name: /Expand all/ }))
