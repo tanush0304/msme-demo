@@ -46,8 +46,11 @@ describe('WIP Status charts', () => {
     const trendCard = heading.closest('section')
     const { within, fireEvent } = await import('@testing-library/react')
     expect(within(trendCard).getByTestId('chart-subline').textContent).toMatch(/^\d{2}-\d{2}-\d{4} to \d{2}-\d{2}-\d{4}$/)
-    fireEvent.click(within(trendCard).getByRole('button', { name: /Export/ }))
-    fireEvent.click(within(trendCard).getByRole('menuitem', { name: 'Excel' }))
+    expect(within(trendCard).queryByRole('button', { name: /Export/ })).toBeNull() // Export only after Expand
+    fireEvent.click(within(trendCard).getByRole('button', { name: 'Expand chart' }))
+    const dialog = screen.getByRole('dialog')
+    fireEvent.click(within(dialog).getByRole('button', { name: /Export/ }))
+    fireEvent.click(within(dialog).getByRole('menuitem', { name: 'Excel' }))
     expect(csv.calls).toHaveLength(1)
     const [columns, rows, filename] = csv.calls[0]
     expect(columns.map((c) => c.label)).toEqual(['Period', 'Received', 'Issued', 'Closing WIP']) // same as the chart legend

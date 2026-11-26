@@ -31,6 +31,11 @@ const PROPS = {
   raw: true,
 }
 const card = (props = {}) => render(<ChartCard {...PROPS} {...props}><div data-testid="plot">plot</div></ChartCard>)
+// Export lives in the expanded window only
+const expand = () => {
+  fireEvent.click(screen.getByRole('button', { name: 'Expand chart' }))
+  return screen.getByRole('dialog')
+}
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] })
@@ -88,10 +93,19 @@ describe('Expand modal', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
-  it('Expand shows without exportData; Export does not', () => {
+  it('Expand shows without exportData; Export does not (card or window)', () => {
     card({ exportData: undefined })
     expect(screen.getByRole('button', { name: 'Expand chart' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: /Export/ })).toBeNull()
+    expand()
+    expect(screen.queryByRole('button', { name: /Export/ })).toBeNull()
+  })
+
+  it('the card shows only Expand; Export appears in the expanded window', () => {
+    card()
+    expect(screen.queryByRole('button', { name: /Export/ })).toBeNull()
+    const dialog = expand()
+    expect(within(dialog).getByRole('button', { name: /Export/ })).toBeTruthy()
   })
 })
 
@@ -99,16 +113,17 @@ describe('disabled while loading or empty', () => {
   it.each([
     ['loading', { loading: true }],
     ['empty', { empty: true }],
-  ])('%s: Expand and Export are disabled', (_, extra) => {
+  ])('%s: Expand is disabled (so Export cannot be reached)', (_, extra) => {
     card(extra)
     expect(screen.getByRole('button', { name: 'Expand chart' }).disabled).toBe(true)
-    expect(screen.getByRole('button', { name: /Export/ }).disabled).toBe(true)
+    expect(screen.queryByRole('button', { name: /Export/ })).toBeNull()
   })
 })
 
 describe('Export', () => {
   it('menu: PNG and Excel, styled like the table Export button', () => {
     card()
+    expand()
     const btn = screen.getByRole('button', { name: /Export/ })
     expect(btn.className).toContain('bg-[#15803D]')
     fireEvent.click(btn)
@@ -118,14 +133,16 @@ describe('Export', () => {
 
   it('Excel: exportToCsv with the chart columns + rows and <Screen>_<Chart>_<YYYY-MM-DD>.csv', () => {
     card()
+    expand()
     fireEvent.click(screen.getByRole('button', { name: /Export/ }))
     fireEvent.click(screen.getByRole('menuitem', { name: 'Excel' }))
     expect(m.exportToCsv).toHaveBeenCalledTimes(1)
     expect(m.exportToCsv).toHaveBeenCalledWith(DATA.columns, DATA.rows, 'Production_Status_Efficiency_By_Machine_2026-11-14.csv')
   })
 
-  it('PNG: captures the card with title, filter line and export date, then downloads <Screen>_<Chart>_<date>.png', async () => {
+  it('PNG: captures the expanded chart with title, filter line and export date, then downloads <Screen>_<Chart>_<date>.png', async () => {
     card()
+    expand()
     fireEvent.click(screen.getByRole('button', { name: /Export/ }))
     await act(async () => {
       fireEvent.click(screen.getByRole('menuitem', { name: 'PNG' }))
@@ -133,7 +150,7 @@ describe('Export', () => {
     await waitFor(() => expect(m.download).toHaveBeenCalledTimes(1))
     expect(m.download).toHaveBeenCalledWith('data:image/png;base64,AAA', 'Production_Status_Efficiency_By_Machine_2026-11-14.png')
     const [node, options] = m.toPng.mock.calls[0]
-    expect(node.tagName).toBe('SECTION') // the card, not the page
+    expect(node.getAttribute('role')).toBe('dialog') // the expanded chart, not the page
     expect(options.filter).toBe(pngFilter)
     expect(m.seenAtCapture).toContain(PROPS.title)
     expect(m.seenAtCapture).toContain(PROPS.filterText)
@@ -143,19 +160,20 @@ describe('Export', () => {
 
   it('PNG leaves out the Expand / Export buttons and the open menu (toPng filter)', async () => {
     card()
+    expand()
     fireEvent.click(screen.getByRole('button', { name: /Export/ }))
     const menu = screen.getByRole('menu')
-    const expand = screen.getByRole('button', { name: 'Expand chart' })
-    const exportBtn = screen.getByRole('button', { name: /Export/ })
-    const title = screen.getByRole('heading', { name: PROPS.title })
-    // the tools wrapper (holding both buttons + the menu) is excluded, so html-to-image skips its whole subtree
-    const tools = expand.closest('[data-export-exclude]')
+    const dialog = screen.getByRole('dialog')
+    const exportBtn = within(dialog).getByRole('button', { name: /Export/ })
+    const title = within(dialog).getByRole('heading', { name: PROPS.title })
+    // the tools wrapper (Export + the menu) and Close are excluded, so html-to-image skips them
+    const tools = exportBtn.closest('[data-export-exclude]')
     expect(tools).toBeTruthy()
-    expect(tools.contains(exportBtn)).toBe(true)
     expect(tools.contains(menu)).toBe(true)
     expect(pngFilter(tools)).toBe(false)
+    expect(pngFilter(within(dialog).getByRole('button', { name: 'Close' }))).toBe(false)
     expect(pngFilter(title)).toBe(true)
-    expect(pngFilter(screen.getByTestId('plot'))).toBe(true)
+    expect(pngFilter(within(dialog).getByTestId('plot'))).toBe(true)
     await act(async () => {
       fireEvent.click(screen.getByRole('menuitem', { name: 'PNG' }))
     })
@@ -166,6 +184,7 @@ describe('Export', () => {
   it('a PNG failure shows an error and nothing is downloaded', async () => {
     m.toPng.mockRejectedValueOnce(new Error('canvas tainted'))
     card()
+    expand()
     fireEvent.click(screen.getByRole('button', { name: /Export/ }))
     await act(async () => {
       fireEvent.click(screen.getByRole('menuitem', { name: 'PNG' }))

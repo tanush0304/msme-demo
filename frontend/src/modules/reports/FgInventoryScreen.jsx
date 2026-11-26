@@ -6,6 +6,7 @@ import PageHeader from '../../components/PageHeader'
 import ReportFilterBar from '../../components/reports/ReportFilterBar'
 import useReportPeriod from '../../components/reports/useReportPeriod'
 import { KpiCard, KpiCardRow, formatQty } from '../../components/reports/KpiCard'
+import ChartGroup from '../../components/reports/ChartGroup'
 import ChartCard, { CHART_COLORS, AXIS_TICK, DonutChart } from '../../components/reports/ChartCard'
 import ReportTable from '../../components/reports/ReportTable'
 import { listFgTransactionsUpTo, listFgMasterRows, listPartDrawingRefs } from '../../data/queries/reports'
@@ -216,6 +217,7 @@ export default function FgInventoryScreen() {
           <KpiCard label="Balance to Despatch" value={formatQty(balanceTotal)} unit="Nos" icon={FileText} tone="teal" loading={loading} />
         </KpiCardRow>
 
+        <ChartGroup title="Finished Goods Inventory Report" screen={SCREEN}>
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
           <div>
             <ChartCard
@@ -293,6 +295,7 @@ export default function FgInventoryScreen() {
             </ChartCard>
           </div>
         </div>
+        </ChartGroup>
 
         <ReportTable
           title="Finished Goods Inventory Details"

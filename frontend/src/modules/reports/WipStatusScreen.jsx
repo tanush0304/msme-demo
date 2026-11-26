@@ -6,6 +6,7 @@ import PageHeader from '../../components/PageHeader'
 import ReportFilterBar from '../../components/reports/ReportFilterBar'
 import useReportPeriod from '../../components/reports/useReportPeriod'
 import { KpiCard, KpiCardRow, formatQty } from '../../components/reports/KpiCard'
+import ChartGroup from '../../components/reports/ChartGroup'
 import ChartCard, { CHART_COLORS, AXIS_TICK, DonutChart } from '../../components/reports/ChartCard'
 import ReportTable from '../../components/reports/ReportTable'
 import { listWipTransactionsUpTo } from '../../data/queries/reports'
@@ -167,6 +168,7 @@ export default function WipStatusScreen() {
           <KpiCard label="Balance WIP in Stores" value={formatQty(kpi.balance)} unit="Nos" icon={CircleCheck} tone="red" loading={loading} />
         </KpiCardRow>
 
+        <ChartGroup title="WIP Status Report" screen={SCREEN}>
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
           <ChartCard
             title="WIP Quantity by Operation"
@@ -235,6 +237,7 @@ export default function WipStatusScreen() {
             </ComposedChart>
           </ChartCard>
         </div>
+        </ChartGroup>
 
         <ReportTable
           title="WIP Status Details"

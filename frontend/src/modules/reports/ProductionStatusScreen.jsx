@@ -5,6 +5,7 @@ import { Package, Settings, BarChart3, ShieldX, RefreshCw, TrendingUp, Gauge, Re
 import PageHeader from '../../components/PageHeader'
 import ReportFilterBar from '../../components/reports/ReportFilterBar'
 import { KpiCard, KpiCardRow, formatQty } from '../../components/reports/KpiCard'
+import ChartGroup from '../../components/reports/ChartGroup'
 import ChartCard, { CHART_COLORS, AXIS_TICK } from '../../components/reports/ChartCard'
 import ReportTable from '../../components/reports/ReportTable'
 import { listProductionHours, listLoggedPrds } from '../../data/queries/reports'
@@ -221,6 +222,7 @@ export default function ProductionStatusScreen() {
           </KpiCardRow>
         )}
 
+        <ChartGroup title="Production Status Report" screen={SCREEN}>
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
           <ChartCard title={`${goodVsTarget ? 'Good vs Target' : 'Produced vs Standard'} (${trend.length && trend[0].date.length === 7 ? 'Monthly' : 'Daily'})`}
             icon={TrendingUp}
@@ -293,6 +295,7 @@ export default function ProductionStatusScreen() {
             </ComposedChart>
           </ChartCard>
         </div>
+        </ChartGroup>
 
         <ReportTable
           title="Production Status Report Details"

@@ -6,6 +6,7 @@ import PageHeader from '../../components/PageHeader'
 import ReportFilterBar from '../../components/reports/ReportFilterBar'
 import useReportPeriod from '../../components/reports/useReportPeriod'
 import { KpiCard, KpiCardRow, formatQty } from '../../components/reports/KpiCard'
+import ChartGroup from '../../components/reports/ChartGroup'
 import ChartCard, { CHART_COLORS, AXIS_TICK, DonutChart } from '../../components/reports/ChartCard'
 import ReportTable, { ReportBadge } from '../../components/reports/ReportTable'
 import { listOrdersByPoDate, listFgTransactionsUpTo, getPoDateBounds } from '../../data/queries/reports'
@@ -231,6 +232,7 @@ export default function CustomerOrderStatusScreen({ onOpenTraceability }) {
           </div>
         )}
 
+        <ChartGroup title="Customer Order Status Dashboard" screen={SCREEN}>
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
           <div className="xl:col-span-2">
             <ChartCard
@@ -285,6 +287,7 @@ export default function CustomerOrderStatusScreen({ onOpenTraceability }) {
             <DonutChart data={donut} centre={{ caption: 'Total', total: formatQty(totalQty), unit: 'Nos' }} legendValue={(d) => `${formatQty(d.value)} Nos`} tooltip={(d) => `${formatQty(d.value)} Nos`} />
           </ChartCard>
         </div>
+        </ChartGroup>
 
         <ReportTable
           title="Customer Order Status Details"

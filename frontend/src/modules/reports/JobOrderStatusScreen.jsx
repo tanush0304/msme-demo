@@ -6,6 +6,7 @@ import PageHeader from '../../components/PageHeader'
 import ReportFilterBar from '../../components/reports/ReportFilterBar'
 import useReportPeriod from '../../components/reports/useReportPeriod'
 import { KpiCard, KpiCardRow, formatQty } from '../../components/reports/KpiCard'
+import ChartGroup from '../../components/reports/ChartGroup'
 import ChartCard, { CHART_COLORS, AXIS_TICK, DonutChart } from '../../components/reports/ChartCard'
 import ReportTable, { ReportBadge } from '../../components/reports/ReportTable'
 import { listJobOrderStatusRows } from '../../data/queries/reports'
@@ -170,6 +171,7 @@ export default function JobOrderStatusScreen() {
           <KpiCard label="Overdue" value={formatQty(counts.overdue)} unit={pctText(counts.overduePct)} icon={Truck} tone="red" loading={loading} />
         </KpiCardRow>
 
+        <ChartGroup title="Job Order Status Report" screen={SCREEN}>
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
           <ChartCard
             title="Job Orders - Despatched vs Pending"
@@ -249,6 +251,7 @@ export default function JobOrderStatusScreen() {
             </ComposedChart>
           </ChartCard>
         </div>
+        </ChartGroup>
 
         <ReportTable
           title="Job Order Status Details"

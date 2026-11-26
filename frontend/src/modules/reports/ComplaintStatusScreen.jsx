@@ -6,6 +6,7 @@ import PageHeader from '../../components/PageHeader'
 import ReportFilterBar from '../../components/reports/ReportFilterBar'
 import useReportPeriod from '../../components/reports/useReportPeriod'
 import { KpiCard, KpiCardRow, formatQty } from '../../components/reports/KpiCard'
+import ChartGroup from '../../components/reports/ChartGroup'
 import ChartCard, { CHART_COLORS, AXIS_TICK } from '../../components/reports/ChartCard'
 import ReportTable, { ReportBadge } from '../../components/reports/ReportTable'
 import { listComplaintsForReport } from '../../data/queries/reports'
@@ -142,6 +143,7 @@ export default function ComplaintStatusScreen() {
           <KpiCard label="Closed" value={formatQty(kpi.closed)} unit={pctText(kpi.closed, kpi.total)} icon={CircleCheck} tone="green" loading={loading} />
         </KpiCardRow>
 
+        <ChartGroup title="Customer Complaint Report" screen={SCREEN}>
         <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
           <ChartCard title="Complaints by Customer" icon={Users} loading={loading} empty={empty} height={260} {...chartProps} exportKey="By_Customer" exportData={countExport(byCustomer, 'Customer')}>
             {countChart(byCustomer, 'Complaints', CHART_COLORS.blue)}
@@ -156,6 +158,7 @@ export default function ComplaintStatusScreen() {
             {countChart(bySeverity, 'Complaints', CHART_COLORS.red, SEVERITY_COLORS)}
           </ChartCard>
         </div>
+        </ChartGroup>
 
         <ReportTable
           title="Customer Complaint Details"

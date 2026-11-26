@@ -8,6 +8,7 @@ import PageHeader from '../../components/PageHeader'
 import ReportFilterBar from '../../components/reports/ReportFilterBar'
 import useReportPeriod from '../../components/reports/useReportPeriod'
 import { KpiCard, KpiCardRow, formatQty } from '../../components/reports/KpiCard'
+import ChartGroup from '../../components/reports/ChartGroup'
 import ChartCard, { CHART_COLORS, AXIS_TICK, DonutChart } from '../../components/reports/ChartCard'
 import ReportTable, { ReportBadge } from '../../components/reports/ReportTable'
 import { listQualityInspections, listReadingsForLogs, listProductionHours } from '../../data/queries/reports'
@@ -263,6 +264,7 @@ export default function QualityStatusScreen() {
           <KpiCard label="Overall Quality Yield" value={counts.yield_pct == null ? '—' : counts.yield_pct.toFixed(1)} unit={counts.yield_pct == null ? '' : '%'} sub="Accepted ÷ inspected with readings" icon={BarChart3} tone="purple" loading={loading} />
         </KpiCardRow>
 
+        <ChartGroup title="Quality Status Report" screen={SCREEN}>
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
           <ChartCard
             title="Inspection Result Trend"
@@ -366,6 +368,7 @@ export default function QualityStatusScreen() {
             </ComposedChart>
           </ChartCard>
         </div>
+        </ChartGroup>
 
         <ReportTable
           title="Quality Status Details"

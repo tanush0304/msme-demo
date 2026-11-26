@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts'
 import { ChevronDown, FileSpreadsheet, Maximize2, X } from 'lucide-react'
 import { toPng } from 'html-to-image'
 import { exportToCsv } from '../../utils/exportUtils'
 import { EXPORT_EXCLUDE_ATTR, pngFilter, chartFileName, exportedLine, downloadDataUrl } from '../../utils/chartExport'
+import { useChartGroup } from './ChartGroup'
 
 // Shared series colours (same blues/greens/ambers/reds as the KPI tones).
 export const CHART_COLORS = {
@@ -84,8 +85,9 @@ export function DonutChart({ data, centre, legendValue, tooltip }) {
   )
 }
 
-/** Expand + Export ▾ (PNG / Excel) for one chart. Marked EXPORT_EXCLUDE_ATTR,
- * so the PNG never shows them (or the open menu). Export only with `exportData`. */
+/** Expand (on the card, `onExpand`) or Export ▾ (PNG / Excel; in the expanded
+ * window only, with `exportData`). Marked EXPORT_EXCLUDE_ATTR, so the PNG
+ * never shows them (or the open menu). */
 function ChartTools({ canAct, onExpand, hasExport, onPng, onExcel, busy, onDark }) {
   const [open, setOpen] = useState(false)
   const wrapRef = useRef(null)
@@ -103,6 +105,7 @@ function ChartTools({ canAct, onExpand, hasExport, onPng, onExcel, busy, onDark 
   }
   return (
     <div className="flex shrink-0 items-center gap-1.5" {...{ [EXPORT_EXCLUDE_ATTR]: '' }}>
+      {onExpand && (
       <button
         type="button"
         onClick={onExpand}
@@ -115,6 +118,7 @@ function ChartTools({ canAct, onExpand, hasExport, onPng, onExcel, busy, onDark 
       >
         <Maximize2 size={13} />
       </button>
+      )}
       {hasExport && (
         <div className="relative" ref={wrapRef}>
           <button
@@ -123,7 +127,7 @@ function ChartTools({ canAct, onExpand, hasExport, onPng, onExcel, busy, onDark 
             disabled={!canAct || busy}
             aria-haspopup="menu"
             aria-expanded={open}
-            className="inline-flex h-7 items-center gap-1 rounded-md bg-[#15803D] px-2.5 text-[12px] font-semibold text-white shadow-sm hover:bg-[#166534] disabled:opacity-50"
+            className="inline-flex h-9 items-center gap-1 rounded-md bg-[#15803D] px-2.5 text-[12px] font-semibold text-white shadow-sm hover:bg-[#166534] disabled:opacity-50"
           >
             <FileSpreadsheet size={13} /> Export <ChevronDown size={12} />
           </button>
@@ -150,14 +154,17 @@ function ChartTools({ canAct, onExpand, hasExport, onPng, onExcel, busy, onDark 
  * or with `raw` any content that sizes itself (e.g. DonutChart).
  * `emptyText` replaces the default empty message.
  *
- * Expand (always) opens the chart in a ~90 % viewport modal, re-rendered at
- * full size (same children, title, filter line). Export ▾ (with `exportData`):
- *   PNG   -- the card (title, `filterText`, "Exported DD-MM-YYYY"; buttons and
- *            menu left out via pngFilter), html-to-image
+ * Expand (always, the only button on the card) opens the chart in a ~90 %
+ * viewport modal, re-rendered at full size (same children, title, filter
+ * line). Export ▾ is in that modal only (with `exportData`):
+ *   PNG   -- the expanded chart (title, `filterText`, "Exported DD-MM-YYYY";
+ *            buttons and menu left out via pngFilter), html-to-image
  *   Excel -- `exportData` { columns: [{ key, label }], rows } as CSV
  *   file  -- "<screen>_<exportKey>_<YYYY-MM-DD>.png / .csv"
  * Both are disabled while loading or empty. Exports only use the rows the
- * chart already draws (the screen's filters and the user's own access). */
+ * chart already draws (the screen's filters and the user's own access).
+ * Inside a ChartGroup the card also appears in the group's "Expand all"
+ * window (only when it has data). */
 export default function ChartCard({
   title,
   icon: Icon,
@@ -177,8 +184,16 @@ export default function ChartCard({
   const [expanded, setExpanded] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [exportError, setExportError] = useState('')
-  const cardRef = useRef(null)
+  const dialogRef = useRef(null)
   const canAct = !loading && !empty
+  const group = useChartGroup()
+  const groupId = useId()
+  const report = group?.report
+  const unregister = group?.unregister
+  useEffect(() => {
+    report?.(groupId, loading ? 'loading' : empty ? 'empty' : 'ready')
+  }, [report, groupId, loading, empty])
+  useEffect(() => () => unregister?.(groupId), [unregister, groupId])
   const hasExport = !!exportData
   const fileBase = chartFileName(screen, exportKey || title)
 
@@ -203,12 +218,12 @@ export default function ChartCard({
   }
 
   async function handlePng() {
-    if (!canAct || !cardRef.current) return
+    if (!canAct || !dialogRef.current) return
     setExportError('')
-    setExporting(true) // shows the "Exported ..." line in the card
+    setExporting(true) // shows the "Exported ..." line in the modal
     try {
       await new Promise((r) => setTimeout(r, 0)) // let that line render first
-      const url = await toPng(cardRef.current, { filter: pngFilter, backgroundColor: '#ffffff', pixelRatio: 2, cacheBust: true })
+      const url = await toPng(dialogRef.current, { filter: pngFilter, backgroundColor: '#ffffff', pixelRatio: 2, cacheBust: true })
       downloadDataUrl(url, `${fileBase}.png`)
     } catch (e) {
       setExportError(`Could not create the PNG: ${e?.message ?? e}`)
@@ -233,28 +248,22 @@ export default function ChartCard({
     </div>
   )
 
-  const tools = (onDark) => (
-    <ChartTools
-      canAct={canAct}
-      onExpand={() => setExpanded(true)}
-      hasExport={hasExport}
-      onPng={handlePng}
-      onExcel={handleExcel}
-      busy={exporting}
-      onDark={onDark}
-    />
-  )
+  const tools = (onDark) => <ChartTools canAct={canAct} onExpand={() => setExpanded(true)} onDark={onDark} />
 
-  const subline = (filterText || exporting) && (
+  const subline = filterText && (
     <p className="border-b border-[#E4EEFA] px-3 py-1 text-[12px] text-slate-600" data-testid="chart-subline">
       {filterText}
-      {exporting && <span className="ml-2 text-slate-500">{filterText ? '· ' : ''}{exportedLine()}</span>}
     </p>
   )
 
+  function closeModal() {
+    setExpanded(false)
+    setExportError('')
+  }
+
   return (
     <>
-      <section ref={cardRef} className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-[#D6E4F5] bg-white shadow-[0_2px_6px_rgba(16,60,120,0.08)]">
+      <section className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-[#D6E4F5] bg-white shadow-[0_2px_6px_rgba(16,60,120,0.08)]">
         {headerColor ? (
           <div className="flex items-center gap-2 px-4 py-2.5" style={{ backgroundColor: headerColor }}>
             <h2 className="text-[17px] font-bold text-white">{title}</h2>
@@ -278,23 +287,33 @@ export default function ChartCard({
           </div>
         )}
         {subline}
-        {exportError && (
-          <p role="alert" className="px-3 py-1 text-[12px] text-red-700" {...{ [EXPORT_EXCLUDE_ATTR]: '' }}>
-            {exportError}
-          </p>
-        )}
         {body(height)}
       </section>
+
+      {group?.open &&
+        group.grid &&
+        canAct &&
+        createPortal(
+          <section className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-[#D6E4F5] bg-white shadow-[0_2px_6px_rgba(16,60,120,0.08)]" data-testid="chart-group-cell">
+            <div className="border-b border-[#E4EEFA] bg-gradient-to-r from-[#EAF3FE] to-white px-3 py-2">
+              <h3 className="text-[15px] font-bold text-[#0B2A5B]">{title}</h3>
+              {filterText && <p className="text-[12px] text-slate-600">{filterText}</p>}
+            </div>
+            {body(Math.max(height, 340))}
+          </section>,
+          group.grid,
+        )}
 
       {expanded &&
         createPortal(
           <div
             role="presentation"
             data-testid="chart-modal-backdrop"
-            onMouseDown={(e) => e.target === e.currentTarget && setExpanded(false)}
+            onMouseDown={(e) => e.target === e.currentTarget && closeModal()}
             className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 sm:p-[5vh]"
           >
             <div
+              ref={dialogRef}
               role="dialog"
               aria-modal="true"
               aria-label={typeof title === 'string' ? title : 'Chart'}
@@ -303,12 +322,19 @@ export default function ChartCard({
               <div className="flex items-start gap-3 border-b border-[#E4EEFA] bg-gradient-to-r from-[#EAF3FE] to-white px-4 py-3">
                 <div className="min-w-0 flex-1">
                   <h2 className="text-[18px] font-bold text-[#0B2A5B]">{title}</h2>
-                  {filterText && <p className="mt-0.5 text-[12px] text-slate-600">{filterText}</p>}
+                  {(filterText || exporting) && (
+                    <p className="mt-0.5 text-[12px] text-slate-600" data-testid="chart-subline">
+                      {filterText}
+                      {exporting && <span className="ml-2 text-slate-500">{filterText ? '· ' : ''}{exportedLine()}</span>}
+                    </p>
+                  )}
                 </div>
                 {actions && <div className="min-w-0">{actions}</div>}
+                {hasExport && <ChartTools canAct={canAct} hasExport onPng={handlePng} onExcel={handleExcel} busy={exporting} />}
                 <button
                   type="button"
-                  onClick={() => setExpanded(false)}
+                  {...{ [EXPORT_EXCLUDE_ATTR]: '' }}
+                  onClick={closeModal}
                   aria-label="Close"
                   title="Close"
                   className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#CBDAEE] bg-white text-slate-600 hover:bg-[#E3F0FD]"
@@ -316,6 +342,11 @@ export default function ChartCard({
                   <X size={18} />
                 </button>
               </div>
+              {exportError && (
+                <p role="alert" className="px-4 py-1 text-[12px] text-red-700" {...{ [EXPORT_EXCLUDE_ATTR]: '' }}>
+                  {exportError}
+                </p>
+              )}
               {body(null, true)}
             </div>
           </div>,

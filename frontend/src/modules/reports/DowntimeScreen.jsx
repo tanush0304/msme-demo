@@ -5,6 +5,7 @@ import { Settings, Hourglass, PieChart as PieIcon, BarChart3, TrendingUp } from 
 import PageHeader from '../../components/PageHeader'
 import ReportFilterBar from '../../components/reports/ReportFilterBar'
 import { KpiCard, KpiCardRow, formatQty } from '../../components/reports/KpiCard'
+import ChartGroup from '../../components/reports/ChartGroup'
 import ChartCard, { CHART_COLORS, AXIS_TICK, DonutChart } from '../../components/reports/ChartCard'
 import ReportTable from '../../components/reports/ReportTable'
 import { listProductionHours, listProductionSetup } from '../../data/queries/reports'
@@ -123,6 +124,7 @@ export default function DowntimeScreen() {
           <KpiCard label="Machines Monitored" value={formatQty(summary.machines)} icon={BarChart3} tone="purple" loading={loading} />
         </KpiCardRow>
 
+        <ChartGroup title="Downtime Report" screen={SCREEN}>
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
           <ChartCard
             title="Downtime Hours by Type"
@@ -197,6 +199,7 @@ export default function DowntimeScreen() {
             </ComposedChart>
           </ChartCard>
         </div>
+        </ChartGroup>
 
         <ReportTable
           title="Downtime Report Details"

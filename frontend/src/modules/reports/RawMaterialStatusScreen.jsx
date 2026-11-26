@@ -6,6 +6,7 @@ import PageHeader from '../../components/PageHeader'
 import ReportFilterBar from '../../components/reports/ReportFilterBar'
 import useReportPeriod from '../../components/reports/useReportPeriod'
 import { KpiCard, KpiCardRow, formatQty } from '../../components/reports/KpiCard'
+import ChartGroup from '../../components/reports/ChartGroup'
 import ChartCard, { CHART_COLORS, AXIS_TICK, DonutChart } from '../../components/reports/ChartCard'
 import ReportTable from '../../components/reports/ReportTable'
 import { listRmTransactionsUpTo, listRmStockMasterRows } from '../../data/queries/reports'
@@ -259,6 +260,7 @@ export default function RawMaterialStatusScreen() {
           <KpiCard label="Closing Stock" value={perUom(sumByUom(rmRows, 'closing'))} delta={delta('closing')} icon={PackageCheck} tone="teal" loading={loading} />
         </KpiCardRow>
 
+        <ChartGroup title="Raw Material Status Report" screen={SCREEN}>
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
           <ChartCard
             title={`Stock Position by RM Type${unitLabel}`}
@@ -329,6 +331,7 @@ export default function RawMaterialStatusScreen() {
             <DonutChart data={partsByType} centre={{ caption: 'Total Parts Available', total: formatQty(partsTotal), unit: 'Nos' }} tooltip={(d) => `${formatQty(d.value)} parts`} />
           </ChartCard>
         </div>
+        </ChartGroup>
 
         <ReportTable
           title="Raw Material Status Details"
